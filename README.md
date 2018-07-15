@@ -1,5 +1,5 @@
 # hcproxy
-**hcproxy** is a lightweight forward HTTP proxy that implements just one HTTP method -- `CONNECT`. It can be used to proxy HTTPS (but not unencrypted HTTP) traffic.
+**hcproxy** is a lightweight forward HTTP proxy that implements just one HTTP method -- `CONNECT`.
 
 With decent network drivers tunneling is zero copy, which makes `hcproxy` fast and efficient. The price for this is 6 file descriptors per connection (client socket, server socket and two pipes).
 
