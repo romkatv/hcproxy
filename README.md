@@ -1,6 +1,8 @@
 # hcproxy
 **hcproxy** is a lightweight forward HTTP proxy that implements just one HTTP method -- `CONNECT`. It can be used to proxy HTTPS (but not unencrypted HTTP) traffic.
 
+With decent network drivers tunneling is zero copy, which makes `hcproxy` fast and efficient. The price for this is 6 file descriptors per connection (client socket, server socket and two pipes).
+
 ## Requirements
 
 *  To compile: C++17 compiler.
@@ -17,8 +19,30 @@ make
 
 ## Installing locally
 
+Install `hcproxy` as a `system.d` service:
 ```shell
 sudo make install
+```
+
+Verify that the service is running:
+```console
+$ systemctl status hcproxy
+● hcproxy.service - HTTP CONNECT proxy
+   Loaded: loaded (/lib/systemd/system/hcproxy.service; enabled; vendor preset: enabled)
+   Active: active (running) since Fri 2018-07-13 13:02:09 UTC; 30s ago
+   ...
+```
+
+Try it out:
+```console
+$ curl -x localhost:8889 https://www.google.com/
+<!doctype html>...
+```
+
+If you want to fetch an `http` URL (rather than `https`), use `-p` to force `curl` to use `CONNECT` for proxying all traffic:
+```console
+$ curl -p -x localhost:8889 http://www.google.com/
+<!doctype html>...
 ```
 
 ## Installing remotely via SSH
