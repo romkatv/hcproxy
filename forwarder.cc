@@ -80,7 +80,7 @@ class Buffer {
     ssize_t ret = splice(fd, nullptr, pipe_[1], nullptr, capacity_ - size_,
                          SPLICE_F_NONBLOCK | SPLICE_F_MOVE);
     if (ret < 0) {
-      if (errno == EAGAIN || errno == EWOULDBLOCK) return IoStatus::kNoOp;
+      if (errno == EAGAIN) return IoStatus::kNoOp;
       HCP_CHECK(close(pipe_[1]) == 0);
       pipe_[1] = -1;
       return IoStatus::kError;
@@ -108,7 +108,7 @@ class Buffer {
     ssize_t ret = splice(pipe_[0], nullptr, fd, nullptr, size_, SPLICE_F_NONBLOCK | SPLICE_F_MOVE);
     assert(ret != 0);
     if (ret < 0) {
-      if (errno == EAGAIN || errno == EWOULDBLOCK) return IoStatus::kNoOp;
+      if (errno == EAGAIN) return IoStatus::kNoOp;
       HCP_CHECK(close(pipe_[0]) == 0);
       pipe_[0] = -1;
       return IoStatus::kError;
