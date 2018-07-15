@@ -2,7 +2,7 @@
 #
 # Usage: install-via-ssh certificate.pem user@12.34.56.78
 #
-# Installs hcproxy as system.d service on the specified remote machine.
+# Installs hcproxy as systemd service on the specified remote machine.
 # Must be run from the hcproxy directory.
 
 set -eu

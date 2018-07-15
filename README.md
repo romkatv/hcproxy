@@ -7,7 +7,7 @@ With decent network drivers tunneling is zero copy, which makes `hcproxy` fast a
 
 *  To compile: C++17 compiler.
 *  To run: Linux, `libc`.
-*  To run as daemon: `system.d`.
+*  To run as daemon: `systemd`.
 
 ## Compiling
 
@@ -19,7 +19,7 @@ make
 
 ## Installing locally
 
-Install `hcproxy` as a `system.d` service:
+Install `hcproxy` as a `systemd` service:
 ```shell
 sudo make install
 ```
