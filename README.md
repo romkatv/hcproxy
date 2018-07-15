@@ -76,7 +76,7 @@ If `hcproxy` doesn't like an incoming request (e.g., it's not a `CONNECT`) or ca
 
 The only time `hcproxy` produces output is immediately before an abnormal termination (e.g., a crash). This diagnostic is sent to `stderr`. `hcproxy` doesn't write logs.
 
-If you've installed `htproxy` as `systemd` service, you can read high-level service logs with `journalctl`. Start and stop events, as well as crashes, should be recorded there:
+If you've installed `hcproxy` as `systemd` service, you can read high-level service logs with `journalctl`. Start and stop events, as well as crashes, should be recorded there:
 
 ```shell
 journalctl -u hcproxy | tail
