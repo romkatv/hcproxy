@@ -23,7 +23,7 @@ class DnsResolver {
     // Use this many threads to perform DNS resolution. DNS resolution is done by
     // means of getaddrinfo(), which is synchronous. This option specifies the
     // maximum number of concurrent calls to getaddrinfo(). All concurrent calls
-    // are for different address: concurrent calls to DnsResolver::Resolve() for
+    // are for different addresses. Concurrent calls to DnsResolver::Resolve() for
     // the same address are collapsed so that just one call to getaddrinfo() is
     // made and therefore just one thread is used.
     size_t num_dns_resolution_threads = 8;
@@ -36,8 +36,8 @@ class DnsResolver {
     // fresh mapping.
     Duration dns_cache_refresh_period = std::chrono::seconds(75);
     // Whenever DnsResolver::Resolve() is called for a given address, keep resolving
-    // it periodically for this long afterwards. This is meant to keep the cache
-    // fresh for addresses we care about.
+    // the address periodically for this long afterwards. This is meant to keep the
+    // cache fresh for addresses we care about.
     Duration dns_cache_refresh_duration = std::chrono::seconds(3600);
   };
 
