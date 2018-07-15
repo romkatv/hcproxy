@@ -23,7 +23,8 @@ struct Options : Acceptor::Options,
                  DnsResolver::Options,
                  Connector::Options,
                  Forwarder::Options {
-  // Refuse to connect to any port other than these.
+  // Refuse to connect to any port other than these. If empty, allow connections
+  // to any port.
   std::unordered_set<std::string_view> allowed_ports = {"80", "443"};
   // If positive, set the maximum number of open file descriptors (NOFILE)
   // to this value on startup. The proxy uses 6 file descriptors per client
@@ -35,7 +36,9 @@ struct Options : Acceptor::Options,
 void RunProxy(const Options& opt) {
   auto IsAllowedPort = [&](std::string_view host_port) {
     auto sep = host_port.find(':');
-    return sep != std::string_view::npos && opt.allowed_ports.count(host_port.substr(sep + 1));
+    if (sep == std::string_view::npos) return false;
+    std::string_view port = host_port.substr(sep + 1);
+    return opt.allowed_ports.empty() || opt.allowed_ports.count(port);
   };
 
   signal(SIGPIPE, SIG_IGN);
