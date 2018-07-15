@@ -58,11 +58,15 @@ To change configuration, you'll need to modify the source code of `main()` in `h
 ```diff
    hcproxy::Options opt;
 +  opt.listen_port = 1234;
-+  opt.connect_timeout = std::chrono::seconds(10);
++  opt.connect_timeout = std::chrono::seconds(30);
    hcproxy::RunProxy(opt);
 ```
 
 The list of options, their descriptions and default values can be found in the source code.
+
+## Using `hcproxy` as web browser proxy
+
+You can use `hcproxy` as web browser proxy. However, unless you can convince your browser to tunnel all traffic via HTTP `CONNECT`, fetching plain `http` URLs won't work. WebSocket (`ws` and `wss` protocols) and `https` will work fine as they always go through `CONNECT`.
 
 ## Troubleshooting
 

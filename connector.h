@@ -18,7 +18,7 @@ class Connector {
     // Close the client connection if unable to establish a server connection
     // within this time. More specifically, this is how much time we allow
     // for the socket to become writable after we call connect() on it.
-    Duration connect_timeout = std::chrono::seconds(5);
+    Duration connect_timeout = std::chrono::seconds(10);
   };
 
   explicit Connector(const Options& opt);
