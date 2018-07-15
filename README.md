@@ -64,6 +64,8 @@ To change configuration, you'll need to modify the source code of `main()` in `h
 
 The list of options, their descriptions and default values can be found in the source code.
 
+The behavior of `hcproxy` cannot be customized through request headers. It simply ignores all headers.
+
 ## Using `hcproxy` as web browser proxy
 
 You can use `hcproxy` as web browser proxy. However, unless you can convince your browser to tunnel all traffic via HTTP `CONNECT`, fetching plain `http` URLs won't work. WebSocket (`ws` and `wss` protocols) and `https` will work fine as they always go through `CONNECT`.
