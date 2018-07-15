@@ -24,8 +24,8 @@ scp -i "$PEM" hcproxy hcproxy.service "$MACHINE":~
 
 echo "Installing hcproxy on $MACHINE..." >&2
 ssh -i "$PEM" -o "StrictHostKeyChecking no" "$MACHINE" 'bash -ex' <<END
-  sudo sudo systemctl stop hcproxy || true
-  sudo sudo systemctl disable hcproxy || true
+  sudo sudo systemctl stop hcproxy 2>/dev/null || true
+  sudo sudo systemctl disable hcproxy 2>/dev/null || true
   sudo cp -f hcproxy /usr/sbin/
   sudo cp -f hcproxy.service /lib/systemd/system/
   sudo systemd-analyze verify /lib/systemd/system/hcproxy.service
