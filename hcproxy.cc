@@ -25,7 +25,7 @@ struct Options : Acceptor::Options,
                  Forwarder::Options {
   // Refuse to connect to any port other than these. If empty, allow connections
   // to any port.
-  std::unordered_set<std::string_view> allowed_ports = {"80", "443"};
+  std::unordered_set<std::string_view> allowed_ports = {};
   // If positive, set the maximum number of open file descriptors (NOFILE)
   // to this value on startup. The proxy uses 6 file descriptors per client
   // connection: 2 sockets + 2 pipes (each pipe is 2 file descriptors).
