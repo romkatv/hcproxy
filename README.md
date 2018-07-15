@@ -63,3 +63,15 @@ To change configuration, you'll need to modify the source code of `main()` in `h
 ```
 
 The list of options, their descriptions and default values can be found in the source code.
+
+## Troubleshooting
+
+If `hcproxy` doesn't like an incoming request (e.g., it's not a `CONNECT`) or cannot connect to the downstream server, it simply closes the incoming connection. It never replies with an HTTP error. The only response it ever sends to the client is HTTP 200.
+
+The only time `hcproxy` produces output is immediately before an abnormal termination (e.g., a crash). This diagnostic is sent to `stderr`. `hcproxy` doesn't write logs.
+
+If you've installed `htproxy` as `systemd` service, you can read high-level service logs with `journalctl`. Start and stop events, as well as crashes, should be recorded there:
+
+```shell
+journalctl -u hcproxy | tail
+```
