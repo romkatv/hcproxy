@@ -1,0 +1,11 @@
+[Unit]
+Description=HTTP CONNECT proxy
+After=network.target
+
+[Service]
+ExecStart=/usr/sbin/hcproxy
+Restart=always
+LimitNOFILE=32768
+
+[Install]
+WantedBy=multi-user.target

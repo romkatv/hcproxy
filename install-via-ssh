@@ -1,0 +1,37 @@
+#!/bin/bash
+#
+# Usage: install-via-ssh certificate.pem user@12.34.56.78
+#
+# Installs hcproxy as system.d service on the specified remote machine.
+# Must be run from the hcproxy directory.
+
+set -eu
+set -o pipefail
+
+if [[ $# -ne 2 ]]; then
+  echo 'Usage: install-via-ssh certificate.pem user@12.34.56.78' >&2
+  exit 1
+fi
+
+readonly PEM=$1
+readonly MACHINE=$2
+
+echo "Compiling hcproxy..." >&2
+make
+
+echo "Copying hcproxy to $MACHINE..." >&2
+scp -i "$PEM" hcproxy hcproxy.service "$MACHINE":~
+
+echo "Installing hcproxy on $MACHINE..." >&2
+ssh -i "$PEM" -o "StrictHostKeyChecking no" "$MACHINE" 'bash -ex' <<END
+  sudo sudo systemctl stop hcproxy || true
+  sudo sudo systemctl disable hcproxy || true
+  sudo cp -f hcproxy /usr/sbin/
+  sudo cp -f hcproxy.service /lib/systemd/system/
+  sudo systemd-analyze verify /lib/systemd/system/hcproxy.service
+  sudo systemctl enable hcproxy
+  sudo systemctl start hcproxy
+  rm hcproxy hcproxy.service
+END
+
+echo "SUCCESS: installed hcproxy on $MACHINE" >&2
