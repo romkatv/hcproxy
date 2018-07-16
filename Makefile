@@ -1,7 +1,17 @@
 appname := hcproxy
 
 CXX := g++
-CXXFLAGS := -std=c++17 -Wall -Werror -D_GNU_SOURCE -O2 -static-libstdc++ -static-libgcc -pthread
+
+CXXFLAGS :=         \
+	-std=c++17        \
+	-fno-exceptions   \
+	-Wall             \
+	-Werror           \
+	-D_GNU_SOURCE     \
+	-O2               \
+	-static-libstdc++ \
+	-static-libgcc    \
+	-pthread
 
 srcs := $(shell find . -name "*.cc")
 objs  := $(patsubst %.cc, %.o, $(srcs))
