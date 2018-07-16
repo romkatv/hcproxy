@@ -20,7 +20,7 @@ echo "Compiling hcproxy..." >&2
 make
 
 echo "Copying hcproxy to $MACHINE..." >&2
-scp -i "$PEM" hcproxy hcproxy.service "$MACHINE":~
+scp -i "$PEM" -o "StrictHostKeyChecking no" hcproxy hcproxy.service "$MACHINE":~
 
 echo "Installing hcproxy on $MACHINE..." >&2
 ssh -i "$PEM" -o "StrictHostKeyChecking no" "$MACHINE" 'bash -ex' <<END
