@@ -42,18 +42,23 @@ enum class IoStatus {
 
 class Buffer {
  public:
-  explicit Buffer(size_t size_bytes) {
+  Buffer() {}
+  Buffer(Buffer&&) = delete;
+
+  bool Init(size_t size_bytes) {
     assert(size_bytes > 0 && size_bytes < std::numeric_limits<int>::max());
-    // Note: This will crash if we reach the open file descriptor limit.
-    HCP_CHECK(pipe(pipe_) == 0);
+    if (pipe(pipe_) != 0) {
+      HCP_CHECK(errno == EMFILE || errno == ENFILE);
+      for (int& fd : pipe_) fd = -1;
+      return false;
+    }
     HCP_CHECK((capacity_ = fcntl(pipe_[0], F_SETPIPE_SZ, size_bytes)) > 0);
     for (int fd : pipe_) {
       assert(fd >= 0);
       assert(fcntl(fd, F_GETPIPE_SZ) == capacity_);
     }
+    return true;
   }
-
-  Buffer(Buffer&&) = delete;
 
   ~Buffer() {
     for (int fd : pipe_) {
@@ -122,14 +127,24 @@ class Buffer {
  private:
   int capacity_;
   int size_ = 0;
-  int pipe_[2];
+  int pipe_[2] = {-1, -1};
 };
 
 class LinkEventHandler : public EventHandler {
  public:
   static void New(EventLoop* loop, int client_fd, int server_fd, const Forwarder::Options& opt) {
-    auto* client = new LinkEventHandler(client_fd, opt.server_to_client_buffer_size_bytes);
-    auto* server = new LinkEventHandler(server_fd, opt.client_to_server_buffer_size_bytes);
+    auto* client = new LinkEventHandler(client_fd);
+    auto* server = new LinkEventHandler(server_fd);
+    if (!client->out_.Init(opt.server_to_client_buffer_size_bytes) ||
+        !server->out_.Init(opt.client_to_server_buffer_size_bytes)) {
+      for (auto* p : {client, server}) {
+        HCP_CHECK(close(p->fd()) == 0);
+        p->readable_ = false;
+        p->writable_ = false;
+        delete p;
+      }
+      return;
+    }
     client->other_ = server;
     server->other_ = client;
     client->IncRef();
@@ -161,8 +176,7 @@ class LinkEventHandler : public EventHandler {
   }
 
  private:
-  LinkEventHandler(int fd, size_t write_buffer_size_bytes)
-      : EventHandler(fd), out_(write_buffer_size_bytes) {}
+  LinkEventHandler(int fd) : EventHandler(fd) {}
 
   ~LinkEventHandler() override { assert(!readable_ && !writable_); }
 

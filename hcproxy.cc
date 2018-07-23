@@ -43,7 +43,8 @@ struct Options : Acceptor::Options,
   // If positive, set the maximum number of open file descriptors (NOFILE)
   // to this value on startup. The proxy uses 6 file descriptors per client
   // connection: 2 sockets + 2 pipes (each pipe is 2 file descriptors).
-  // If the open file descriptor limit is reached, the proxy will crash.
+  // When the open file descriptor limit is reached, the proxy will stop
+  // accepting new connections.
   rlim_t max_num_open_files = 0;
 };
 

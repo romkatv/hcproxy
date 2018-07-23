@@ -56,11 +56,14 @@ Acceptor::Acceptor(const Options& opt) {
 Acceptor::~Acceptor() { HCP_CHECK(close(fd_) == 0); }
 
 int Acceptor::Accept() {
-  int res;
-  // Note: This will crash if we reach the open file descriptor limit.
-  HCP_CHECK((res = accept4(fd_, nullptr, nullptr, SOCK_NONBLOCK)) >= 0);
-  SetSockOpt(res, IPPROTO_TCP, TCP_NODELAY);
-  return res;
+  while (true) {
+    int conn = accept4(fd_, nullptr, nullptr, SOCK_NONBLOCK);
+    if (conn >= 0) {
+      SetSockOpt(conn, IPPROTO_TCP, TCP_NODELAY);
+      return conn;
+    }
+    HCP_CHECK(errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM);
+  }
 }
 
 }  // namespace hcproxy

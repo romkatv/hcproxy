@@ -32,16 +32,16 @@ namespace hcproxy {
 namespace {
 
 int ConnectAsync(const addrinfo& addr) {
-  int fd;
-  // Note: This will crash if we reach the open file descriptor limit.
-  HCP_CHECK((fd = socket(addr.ai_family, SOCK_STREAM | SOCK_NONBLOCK, 0)) >= 0);
+  int fd = socket(addr.ai_family, SOCK_STREAM | SOCK_NONBLOCK, 0);
+  if (fd < 0) {
+    HCP_CHECK(errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM);
+    return -1;
+  }
   int one = 1;
   HCP_CHECK(setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)) == 0);
-  if (fd >= 0) {
-    if (connect(fd, addr.ai_addr, addr.ai_addrlen) != 0 && errno != EINPROGRESS) {
-      HCP_CHECK(close(fd) == 0);
-      return -1;
-    }
+  if (connect(fd, addr.ai_addr, addr.ai_addrlen) != 0 && errno != EINPROGRESS) {
+    HCP_CHECK(close(fd) == 0);
+    return -1;
   }
   return fd;
 }
