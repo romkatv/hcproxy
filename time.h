@@ -20,7 +20,7 @@
 namespace hcproxy {
 
 using Clock = std::chrono::steady_clock;
-using Time = std::chrono::time_point<Clock>;
+using Time = Clock::time_point;
 using Duration = Clock::duration;
 
 }  // namespace hcproxy
