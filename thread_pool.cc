@@ -32,18 +32,19 @@ ThreadPool::~ThreadPool() {
     std::lock_guard<std::mutex> lock(mutex_);
     exit_ = true;
   }
-  wake_.notify_all();
+  cv_.notify_all();
+  sleeper_cv_.notify_one();
   for (std::thread& t : threads_) t.join();
 }
 
 void ThreadPool::Schedule(Time t, std::function<void()> f) {
-  std::unique_lock<std::mutex> lock(mutex_);
-  work_.push(Work{std::move(t), next_, std::move(f)});
-  if (work_.top().idx == next_) {
-    sleeper_tid_ = 0;
-    wake_.notify_one();
+  std::condition_variable* wake = nullptr;
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    work_.push(Work{std::move(t), ++last_idx_, std::move(f)});
+    if (work_.top().idx == last_idx_) wake = have_sleeper_ ? &sleeper_cv_ : &cv_;
   }
-  ++next_;
+  if (wake) wake->notify_one();
 }
 
 void ThreadPool::Loop(size_t tid) {
@@ -52,7 +53,7 @@ void ThreadPool::Loop(size_t tid) {
     while (true) {
       if (exit_) return nullptr;
       if (work_.empty()) {
-        wake_.wait(lock);
+        cv_.wait(lock);
         continue;
       }
       Time now = Clock::now();
@@ -60,17 +61,19 @@ void ThreadPool::Loop(size_t tid) {
       if (top.t <= now) {
         std::function<void()> res = std::move(top.f);
         work_.pop();
-        sleeper_tid_ = 0;
-        if (!work_.empty()) wake_.notify_one();
+        bool notify = !work_.empty() && !have_sleeper_;
+        lock.unlock();
+        if (notify) cv_.notify_one();
         return res;
       }
-      if (sleeper_tid_ != 0) {
-        wake_.wait(lock);
+      if (have_sleeper_) {
+        cv_.wait(lock);
         continue;
       }
-      sleeper_tid_ = tid;
-      wake_.wait_until(lock, top.t);
-      if (sleeper_tid_ == tid) sleeper_tid_ = 0;
+      have_sleeper_ = true;
+      sleeper_cv_.wait_until(lock, top.t);
+      assert(have_sleeper_);
+      have_sleeper_ = false;
     }
   };
   while (std::function<void()> f = Next()) f();

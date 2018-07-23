@@ -53,11 +53,15 @@ class ThreadPool {
 
   void Loop(size_t tid);
 
-  int64_t next_ = 0;
+  int64_t last_idx_ = 0;
   bool exit_ = false;
-  size_t sleeper_tid_ = 0;
+  // Do we have a thread waiting on sleeper_cv_?
+  bool have_sleeper_ = false;
   std::mutex mutex_;
-  std::condition_variable wake_;
+  // Any number of threads can wait on this condvar. Always without a timeout.
+  std::condition_variable cv_;
+  // At most one thread can wait on this condvar at a time. Always with a timeout.
+  std::condition_variable sleeper_cv_;
   std::priority_queue<Work> work_;
   std::vector<std::thread> threads_;
 };
