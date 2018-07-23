@@ -34,18 +34,14 @@ void EPoll::Add(int fd, int events, void* data) {
   event.events = events;
   event.data.ptr = data;
   HCP_CHECK(epoll_ctl(epoll_, EPOLL_CTL_ADD, fd, &event) == 0);
-  assert(total_events_ <= events_.size());
-  if (++total_events_ > events_.size()) {
-    events_.resize(total_events_);
-    events_.resize(events_.capacity());
-  }
+  ++total_events_;
 }
 
 void EPoll::Remove(int fd) {
   assert(total_events_ > 0);
-  --total_events_;
   epoll_event event;
   HCP_CHECK(epoll_ctl(epoll_, EPOLL_CTL_DEL, fd, &event) == 0);
+  --total_events_;
 }
 
 void EPoll::Modify(int fd, int events, void* data) {
@@ -57,6 +53,10 @@ void EPoll::Modify(int fd, int events, void* data) {
 }
 
 void EPoll::Wait(std::optional<Duration> timeout) {
+  if (total_events_ > events_.size()) {
+    events_.resize(total_events_);
+    events_.resize(events_.capacity());
+  }
   int ms = timeout ? std::max<int>(0, ceil<milliseconds>(*timeout).count()) : -1;
   HCP_CHECK((ready_events_ = epoll_wait(epoll_, events_.data(), events_.size(), ms)) >= 0);
 }
