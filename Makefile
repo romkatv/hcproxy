@@ -1,34 +1,34 @@
 appname := hcproxy
 
 CXX := g++
+CXXFLAGS := -std=c++17 -fno-exceptions -Wall -Werror -D_GNU_SOURCE -O2
+LDFLAGS := -static-libstdc++ -static-libgcc -pthread
 
-CXXFLAGS :=         \
-	-std=c++17        \
-	-fno-exceptions   \
-	-Wall             \
-	-Werror           \
-	-D_GNU_SOURCE     \
-	-O2               \
-	-static-libstdc++ \
-	-static-libgcc    \
-	-pthread
-
-srcs := $(shell find . -name "*.cc")
-objs  := $(patsubst %.cc, %.o, $(srcs))
+srcs := $(shell find src -name "*.cc")
+objs  := $(patsubst src/%.cc, obj/%.o, $(srcs))
 
 all: $(appname)
 
 $(appname): $(objs)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $(appname) $(objs) $(LDLIBS)
+	$(CXX) $(LDFLAGS) -o $(appname) $(objs)
 
-depend: depend.list
+$(objs): | obj
 
-depend.list: $(srcs)
-	rm -f depend.list
-	$(CXX) $(CXXFLAGS) -MM $^>>depend.list
+obj:
+	mkdir -p obj
+
+obj/%.o: src/%.cc
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+depend: obj/depend.list
+
+obj/depend.list: $(srcs) | obj
+	rm -f obj/depend.list
+	$(CXX) $(CXXFLAGS) -MM $^>>obj/depend.list
 
 clean:
-	rm -f depend.list $(objs)
+	rm -f obj/depend.list obj/*.o
+	test ! -d obj || rmdir --ignore-fail-on-non-empty obj
 
 install: $(appname)
 	systemctl stop hcproxy || true
@@ -39,4 +39,4 @@ install: $(appname)
 	systemctl enable $(appname)
 	systemctl start $(appname)
 
--include depend.list
+-include obj/depend.list
