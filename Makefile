@@ -4,15 +4,15 @@ CXX := g++
 CXXFLAGS := -std=c++17 -fno-exceptions -Wall -Werror -D_GNU_SOURCE -O2
 LDFLAGS := -static-libstdc++ -static-libgcc -pthread
 
-srcs := $(shell find src -name "*.cc")
-objs  := $(patsubst src/%.cc, obj/%.o, $(srcs))
+SRCS := $(shell find src -name "*.cc")
+OBJS  := $(patsubst src/%.cc, obj/%.o, $(SRCS))
 
 all: $(appname)
 
-$(appname): $(objs)
-	$(CXX) $(LDFLAGS) -o $(appname) $(objs)
+$(appname): $(OBJS)
+	$(CXX) $(LDFLAGS) -o $(appname) $(OBJS)
 
-$(objs): | obj
+$(OBJS): | obj
 
 obj:
 	mkdir -p obj
@@ -22,7 +22,7 @@ obj/%.o: src/%.cc
 
 depend: obj/depend.list
 
-obj/depend.list: $(srcs) | obj
+obj/depend.list: $(SRCS) | obj
 	rm -f obj/depend.list
 	$(CXX) $(CXXFLAGS) -MM $^>>obj/depend.list
 
