@@ -73,23 +73,23 @@ void RunProxy(const Options& opt) {
   auto& forwarder = *new Forwarder(opt);
 
   while (true) {
-    int client = acceptor.Accept();
-    parser.ParseRequest(client, [&, client](std::string_view host_port) {
+    int client_fd = acceptor.Accept();
+    parser.ParseRequest(client_fd, [&, client_fd](std::string_view host_port) {
       if (host_port.empty() || !IsAllowedPort(host_port)) {
-        HCP_CHECK(close(client) == 0);
+        HCP_CHECK(close(client_fd) == 0);
         return;
       }
-      dns_resolver.Resolve(host_port, [&, client](std::shared_ptr<const addrinfo> addr) {
+      dns_resolver.Resolve(host_port, [&, client_fd](std::shared_ptr<const addrinfo> addr) {
         if (!addr) {
-          HCP_CHECK(close(client) == 0);
+          HCP_CHECK(close(client_fd) == 0);
           return;
         }
-        connector.Connect(*addr, [&, client](int server) {
-          if (server < 0) {
-            HCP_CHECK(close(client) == 0);
+        connector.Connect(*addr, [&, client_fd](int server_fd) {
+          if (server_fd < 0) {
+            HCP_CHECK(close(client_fd) == 0);
             return;
           }
-          forwarder.Forward(client, server);
+          forwarder.Forward(client_fd, server_fd);
         });
       });
     });
