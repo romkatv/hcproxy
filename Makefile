@@ -18,17 +18,11 @@ obj:
 	mkdir -p obj
 
 obj/%.o: src/%.cc
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
-depend: obj/depend.list
-
-obj/depend.list: $(SRCS) | obj
-	rm -f obj/depend.list
-	$(CXX) $(CXXFLAGS) -MM $^>>obj/depend.list
+	$(CXX) $(CXXFLAGS) -MM -MT $@ src/$*.cc >obj/$*.dep
+	$(CXX) $(CXXFLAGS) -c -o $@ src/$*.cc
 
 clean:
-	rm -f obj/depend.list obj/*.o
-	test ! -d obj || rmdir --ignore-fail-on-non-empty obj
+	rm -rf obj
 
 install: $(appname)
 	systemctl stop hcproxy || true
@@ -39,4 +33,4 @@ install: $(appname)
 	systemctl enable $(appname)
 	systemctl start $(appname)
 
--include obj/depend.list
+-include $(OBJS:.o=.dep)
