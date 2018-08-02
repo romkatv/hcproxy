@@ -5,19 +5,17 @@ CXXFLAGS := -std=c++17 -fno-exceptions -Wall -Werror -D_GNU_SOURCE -O2
 LDFLAGS := -static-libstdc++ -static-libgcc -pthread
 
 SRCS := $(shell find src -name "*.cc")
-OBJS  := $(patsubst src/%.cc, obj/%.o, $(SRCS))
+OBJS := $(patsubst src/%.cc, obj/%.o, $(SRCS))
 
 all: $(appname)
 
 $(appname): $(OBJS)
 	$(CXX) $(LDFLAGS) -o $(appname) $(OBJS)
 
-$(OBJS): | obj
-
 obj:
 	mkdir -p obj
 
-obj/%.o: src/%.cc
+obj/%.o: src/%.cc Makefile | obj
 	$(CXX) $(CXXFLAGS) -MM -MT $@ src/$*.cc >obj/$*.dep
 	$(CXX) $(CXXFLAGS) -c -o $@ src/$*.cc
 
