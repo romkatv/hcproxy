@@ -21,7 +21,6 @@
 namespace hcproxy {
 
 ThreadPool::ThreadPool(size_t num_threads) {
-  assert(num_threads >= 0);
   for (size_t i = 0; i != num_threads; ++i) {
     threads_.emplace_back([=]() { Loop(i + 1); });
   }
