@@ -16,6 +16,7 @@
 
 #include <fcntl.h>
 #include <sys/epoll.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <cassert>
@@ -54,6 +55,7 @@ class Buffer {
     }
     HCP_CHECK((capacity_ = fcntl(pipe_[0], F_SETPIPE_SZ, size_bytes)) > 0);
     for (int fd : pipe_) {
+      static_cast<void>(fd);
       assert(fd >= 0);
       assert(fcntl(fd, F_GETPIPE_SZ) == capacity_);
     }
@@ -76,7 +78,7 @@ class Buffer {
     assert(size_ >= 0);
     assert(size_ <= capacity_);
   }
-
+  
   IoStatus WriteFrom(int fd) {
     assert(pipe_[1] >= 0);
     assert(size_ >= 0);
@@ -110,10 +112,21 @@ class Buffer {
       pipe_[0] = -1;
       return IoStatus::kEof;
     }
+    // There is a bug in splice() that makes it clear the pipe upon returning an error, be it EAGAIN
+    // or something else. To work around it, we do two things. First, we issue a zero-byte write
+    // to check whether the socket is writable and thus to reduce the chance splice() will return
+    // EAGAIN. Second, we terminate the connection if we trigger the bug in splice().
+    if (write(fd, "", 0) == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      return IoStatus::kNoOp;
+    }
     ssize_t ret = splice(pipe_[0], nullptr, fd, nullptr, size_, SPLICE_F_NONBLOCK | SPLICE_F_MOVE);
     assert(ret != 0);
     if (ret < 0) {
-      if (errno == EAGAIN) return IoStatus::kNoOp;
+      if (errno == EAGAIN) {
+        int len = 0;
+        HCP_CHECK(ioctl(pipe_[0], FIONREAD, &len) == 0);
+        if (len == size_) return IoStatus::kNoOp;
+      }
       HCP_CHECK(close(pipe_[0]) == 0);
       pipe_[0] = -1;
       return IoStatus::kError;
@@ -157,12 +170,8 @@ class LinkEventHandler : public EventHandler {
   void OnEvent(EventLoop* loop, int events) override {
     auto Process = [&]() {
       if (HasBits(events, EPOLLERR)) return Terminate(loop);
-      if (HasBits(events, EPOLLOUT)) {
-        if (!ForwardFromOther(loop)) return;
-      }
-      if (HasBits(events, EPOLLIN)) {
-        if (!other_->ForwardFromOther(loop)) return;
-      }
+      if (HasBits(events, EPOLLOUT) && !ForwardFromOther(loop)) return;
+      if (HasBits(events, EPOLLIN) && !other_->ForwardFromOther(loop)) return;
     };
     other_->IncRef();
     Process();

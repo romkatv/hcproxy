@@ -134,6 +134,7 @@ void EventLoop::Refresh(EventHandler* eh) {
   assert(eh->event_loop_ == this);
   eh->deadline_ = Clock::now() + timeout_;
   if (auto* tail = static_cast<EventHandler*>(expire_.tail())) {
+    static_cast<void>(tail);
     assert(eh->deadline_ >= tail->deadline_);
   }
   expire_.Erase(eh);
