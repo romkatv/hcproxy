@@ -74,9 +74,16 @@ You can use `hcproxy` as web browser proxy. However, unless you can convince you
 
 If `hcproxy` doesn't like an incoming request (e.g., it's not a `CONNECT`) or cannot connect to the downstream server, it simply closes the incoming connection. It never replies with an HTTP error. The only response it ever sends to the client is HTTP 200.
 
-The only time `hcproxy` produces output is immediately before an abnormal termination (e.g., a crash). This diagnostic is sent to `stderr`. `hcproxy` doesn't write logs.
+Logs are written to `stderr`. Severity levels:
 
-If you've installed `hcproxy` as `systemd` service, you can read high-level service logs with `journalctl`. Start and stop events, as well as crashes, should be recorded there:
+*  `INFO`: Normal operation.
+*  `WARN`: Request-related errors such as unparsable content or unresolvable hosts.
+*  `ERROR`: Abnormal conditions that may affect all requests; for example, running out of file descriptors.
+*  `FATAL`: Unexpected error or assertion failure; `hcproxy` will abort after writing the message.
+
+To disable all logs except `FATAL` (which cannot be disabled), add `-DHCP_MIN_LOG_LVL=FATAL` compiler flag to `Makefile` and recompile.
+
+If you've installed `hcproxy` as `systemd` service, you can read logs with `journalctl`. Start and stop events, as well as crashes and logs, are recorded there:
 
 ```shell
 journalctl -u hcproxy | tail
