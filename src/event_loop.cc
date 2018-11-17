@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <utility>
 
-#include "error.h"
+#include "check.h"
 
 namespace hcproxy {
 
@@ -28,24 +28,24 @@ namespace {
 void PopFunc(int pipe) {
   std::function<void()>* f;
   int n;
-  HCP_CHECK((n = read(pipe, &f, sizeof(f))) == sizeof(f));
+  CHECK((n = read(pipe, &f, sizeof(f))) == sizeof(f)) << Errno();
   (*f)();
   delete f;
 }
 
 void AddFlags(int fd, int flags) {
   flags |= fcntl(fd, F_GETFL, 0);
-  HCP_CHECK(fcntl(fd, F_SETFL, flags) == 0);
+  CHECK(fcntl(fd, F_SETFL, flags) == 0) << Errno();
 }
 
 }  // namespace
 
 EventLoop::EventLoop(Duration timeout) : timeout_(std::move(timeout)) {
-  assert(timeout_ > Duration::zero());
+  CHECK(timeout_ > Duration::zero());
   // Passing O_DIRECT to pipe2() doesn't work on Windows.
   // Setting it via fcntl() doesn't work on AWS.
   if (pipe2(pipe_, O_DIRECT) != 0) {
-    HCP_CHECK(pipe(pipe_) == 0);
+    CHECK(pipe(pipe_) == 0) << Errno();
     for (int fd : pipe_) AddFlags(fd, O_DIRECT);
   }
   epoll_.Add(pipe_[0], EPOLLIN, nullptr);
@@ -53,9 +53,9 @@ EventLoop::EventLoop(Duration timeout) : timeout_(std::move(timeout)) {
 }
 
 void EventLoop::Add(EventHandler* eh, int events) {
-  assert(eh);
-  assert(!eh->event_loop_);
-  assert(std::this_thread::get_id() == loop_.get_id());
+  CHECK(eh);
+  CHECK(!eh->event_loop_);
+  CHECK(std::this_thread::get_id() == loop_.get_id());
   eh->IncRef();
   eh->event_loop_ = this;
   eh->deadline_ = Clock::now() + timeout_;
@@ -64,9 +64,9 @@ void EventLoop::Add(EventHandler* eh, int events) {
 }
 
 void EventLoop::Remove(EventHandler* eh) {
-  assert(eh);
-  assert(eh->event_loop_ == this);
-  assert(std::this_thread::get_id() == loop_.get_id());
+  CHECK(eh);
+  CHECK(eh->event_loop_ == this);
+  CHECK(std::this_thread::get_id() == loop_.get_id());
   expire_.Erase(eh);
   epoll_.Remove(eh->fd_);
   eh->event_loop_ = nullptr;
@@ -74,22 +74,22 @@ void EventLoop::Remove(EventHandler* eh) {
 }
 
 void EventLoop::Modify(EventHandler* eh, int events) {
-  assert(eh);
-  assert(eh->event_loop_ == this);
-  assert(std::this_thread::get_id() == loop_.get_id());
+  CHECK(eh);
+  CHECK(eh->event_loop_ == this);
+  CHECK(std::this_thread::get_id() == loop_.get_id());
   epoll_.Modify(eh->fd_, events, eh);
   Refresh(eh);
 }
 
 void EventLoop::Schedule(std::function<void()> f) {
-  assert(f);
-  assert(std::this_thread::get_id() != loop_.get_id());
+  CHECK(f);
+  CHECK(std::this_thread::get_id() != loop_.get_id());
   auto* p = new std::function<void()>(std::move(f));
-  HCP_CHECK(write(pipe_[1], &p, sizeof(p)) == sizeof(p));
+  CHECK(write(pipe_[1], &p, sizeof(p)) == sizeof(p)) << Errno();
 }
 
 void EventLoop::ScheduleOrRun(std::function<void()> f) {
-  assert(f);
+  CHECK(f);
   if (std::this_thread::get_id() == loop_.get_id()) {
     f();
   } else {
@@ -120,7 +120,7 @@ void EventLoop::Loop() {
     while (true) {
       auto* eh = static_cast<EventHandler*>(expire_.head());
       if (!eh || eh->deadline_ > Clock::now()) break;
-      assert(eh->event_loop_ == this);
+      CHECK(eh->event_loop_ == this);
       eh->IncRef();
       eh->OnTimeout(this);
       if (eh->event_loop_ == this) Refresh(eh);
@@ -130,12 +130,12 @@ void EventLoop::Loop() {
 }
 
 void EventLoop::Refresh(EventHandler* eh) {
-  assert(eh);
-  assert(eh->event_loop_ == this);
+  CHECK(eh);
+  CHECK(eh->event_loop_ == this);
   eh->deadline_ = Clock::now() + timeout_;
   if (auto* tail = static_cast<EventHandler*>(expire_.tail())) {
     static_cast<void>(tail);
-    assert(eh->deadline_ >= tail->deadline_);
+    CHECK(eh->deadline_ >= tail->deadline_);
   }
   expire_.Erase(eh);
   expire_.AddTail(eh);

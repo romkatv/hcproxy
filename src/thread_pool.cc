@@ -14,9 +14,10 @@
 
 #include "thread_pool.h"
 
-#include <cassert>
 #include <optional>
 #include <utility>
+
+#include "check.h"
 
 namespace hcproxy {
 
@@ -71,7 +72,7 @@ void ThreadPool::Loop(size_t tid) {
       }
       have_sleeper_ = true;
       sleeper_cv_.wait_until(lock, top.t);
-      assert(have_sleeper_);
+      CHECK(have_sleeper_);
       have_sleeper_ = false;
     }
   };

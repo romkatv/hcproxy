@@ -17,11 +17,12 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <unistd.h>
-#include <cassert>
 #include <utility>
 
 #include "bits.h"
+#include "check.h"
 #include "event_loop.h"
+#include "logging.h"
 
 namespace hcproxy {
 
@@ -57,6 +58,11 @@ class ParseEventHandler : public EventHandler {
 
  private:
   void Finish(EventLoop* loop, std::string_view host_port) {
+    if (host_port.empty()) {
+      LOG(WARN) << "[" << fd() << "] request parse error";
+    } else {
+      LOG(INFO) << "[" << fd() << "] CONNECT " << host_port;
+    }
     loop->Remove(this);
     cb_(host_port);
   }
@@ -67,7 +73,7 @@ class ParseEventHandler : public EventHandler {
   //   ""     : Malformed HTTP CONNECT request. Must close the socket. Must not call Read() again.
   //   else:  : host_port of the HTTP CONNECT request. Must not call Read() again.
   std::optional<std::string_view> Read() {
-    assert(size_ < content_.size());
+    CHECK(size_ < content_.size());
     while (true) {
       int ret = read(fd(), content_.data() + size_, content_.size() - size_);
       if (ret < 0) {
@@ -100,8 +106,8 @@ Parser::Parser(Options opt)
     : opt_(std::move(opt)), event_loop_(*new EventLoop(opt_.accept_timeout)) {}
 
 void Parser::ParseRequest(int fd, Callback cb) {
-  assert(fd >= 0);
-  assert(cb);
+  CHECK(fd >= 0);
+  CHECK(cb);
   auto* eh = new ParseEventHandler(opt_, fd, std::move(cb));
   event_loop_.ScheduleOrRun([this, eh]() { event_loop_.Add(eh, EPOLLIN); });
 }

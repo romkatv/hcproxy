@@ -12,27 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "error.h"
+#ifndef ROMKATV_HCPROXY_ADDR_H_
+#define ROMKATV_HCPROXY_ADDR_H_
 
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <cstdlib>
-#include <sstream>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 namespace hcproxy {
-namespace internal_error {
 
-void CheckErrno(bool cond, const char* expr, const char* file, int line) {
-  if (cond) return;
-  int e = errno;
-  char buf[256];
-  errno = 0;
-  const char* desc = strerror_r(e, buf, sizeof(buf));
-  if (errno != 0) desc = "unknown error";
-  fprintf(stderr, "FATAL %s:%d: %s: %s\n", file, line, expr, desc);
-  std::abort();
-}
+const char* IP(const sockaddr& addr);
+const char* IP(const addrinfo& addr);
 
-}  // namespace internal_error
 }  // namespace hcproxy
+
+#endif  // ROMKATV_HCPROXY_ADDR_H_
+

@@ -15,12 +15,12 @@
 #ifndef ROMKATV_HCPROXY_EVENT_LOOP_H_
 #define ROMKATV_HCPROXY_EVENT_LOOP_H_
 
-#include <cassert>
 #include <cstdint>
 #include <functional>
 #include <thread>
 
 #include "epoll.h"
+#include "check.h"
 #include "list.h"
 #include "time.h"
 
@@ -30,20 +30,20 @@ class EventLoop;
 
 class EventHandler : private Node {
  public:
-  explicit EventHandler(int fd) : fd_(fd) { assert(fd_ >= 0); }
+  explicit EventHandler(int fd) : fd_(fd) { CHECK(fd_ >= 0); }
   EventHandler(EventHandler&&) = delete;
 
   int fd() const { return fd_; }
 
   // Not thread-safe.
   void IncRef() {
-    assert(ref_count_ >= 0);
+    CHECK(ref_count_ >= 0);
     ++ref_count_;
   }
 
   // Not thread-safe.
   void DecRef() {
-    assert(ref_count_ > 0);
+    CHECK(ref_count_ > 0);
     if (--ref_count_ == 0) delete this;
   }
 
@@ -54,8 +54,8 @@ class EventHandler : private Node {
 
  protected:
   virtual ~EventHandler() {
-    assert(event_loop_ == nullptr);
-    assert(ref_count_ == 0);
+    CHECK(event_loop_ == nullptr);
+    CHECK(ref_count_ == 0);
   }
 
  private:

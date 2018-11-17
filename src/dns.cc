@@ -14,6 +14,8 @@
 
 #include "dns.h"
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <algorithm>
@@ -21,13 +23,20 @@
 #include <cstring>
 #include <utility>
 
+#include "addr.h"
+#include "check.h"
+#include "logging.h"
+
 namespace hcproxy {
 
 namespace {
 
 std::shared_ptr<const addrinfo> ResolveSync(const std::string& host_port) {
   const char* port = std::strchr(host_port.c_str(), ':');
-  if (!port) return nullptr;
+  if (!port) {
+    LOG(WARN) << "Malformed host:port: " << host_port;
+    return nullptr;
+  }
   std::string host(host_port.c_str(), port);
   ++port;
   addrinfo* res;
@@ -35,7 +44,12 @@ std::shared_ptr<const addrinfo> ResolveSync(const std::string& host_port) {
   hint.ai_family = AF_INET;
   hint.ai_socktype = SOCK_STREAM;
   hint.ai_flags = AI_NUMERICSERV;
-  if (getaddrinfo(host.c_str(), port, &hint, &res) != 0) return nullptr;
+  if (getaddrinfo(host.c_str(), port, &hint, &res) != 0) {
+    LOG(WARN) << "DNS error: " << host_port;
+    return nullptr;
+  }
+  CHECK(res->ai_addrlen == sizeof(sockaddr_in));
+  LOG(INFO) << "Resolved " << host_port << " as " << IP(*res);
   return std::shared_ptr<const addrinfo>(res, freeaddrinfo);
 }
 

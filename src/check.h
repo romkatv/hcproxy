@@ -12,24 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ROMKATV_HCPROXY_ERROR_H_
-#define ROMKATV_HCPROXY_ERROR_H_
+#ifndef ROMKATV_HCPROXY_CHECK_H_
+#define ROMKATV_HCPROXY_CHECK_H_
 
-#include <errno.h>
+#include "logging.h"
 
 // The argument must be an expression convertible to bool.
 // Does nothing if the expression evalutes to true. Otherwise
-// prints an error messages that includes errno and aborts the
-// process.
-#define HCP_CHECK(cond...) \
-  ::hcproxy::internal_error::CheckErrno(!!(cond), #cond, __FILE__, __LINE__)
+// it's equivalent to LOG(FATAL).
+#define CHECK(cond...) (!!(cond)) ? static_cast<void>(0) : LOG(FATAL) << #cond << ": "
 
-namespace hcproxy {
-namespace internal_error {
-
-void CheckErrno(bool cond, const char* expr, const char* file, int line);
-
-}  // namespace internal_error
-}  // namespace hcproxy
-
-#endif  // ROMKATV_HCPROXY_ERROR_H_
+#endif  // ROMKATV_HCPROXY_CHECK_H_

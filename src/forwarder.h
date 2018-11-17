@@ -34,7 +34,7 @@ class Forwarder {
     size_t server_to_client_buffer_size_bytes = 8 << 10;
     // If nothing gets received from or sent to a socket (either client
     // or server), close the connection.
-    Duration read_write_timeout = std::chrono::seconds(300);
+    Duration read_write_timeout = std::chrono::seconds(600);
   };
 
   explicit Forwarder(Options opt);

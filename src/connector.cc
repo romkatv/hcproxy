@@ -19,13 +19,14 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <cassert>
 #include <optional>
 #include <utility>
 
+#include "addr.h"
 #include "bits.h"
-#include "error.h"
+#include "check.h"
 #include "event_loop.h"
+#include "logging.h"
 
 namespace hcproxy {
 
@@ -34,13 +35,16 @@ namespace {
 int ConnectAsync(const addrinfo& addr) {
   int fd = socket(addr.ai_family, SOCK_STREAM | SOCK_NONBLOCK, 0);
   if (fd < 0) {
-    HCP_CHECK(errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM);
+    LOG(ERROR) << "socket() failed: " << Errno();
+    CHECK(errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM) << Errno();
     return -1;
   }
+  LOG(INFO) << "[" << fd << "] connecting to " << IP(addr);
   int one = 1;
-  HCP_CHECK(setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)) == 0);
+  CHECK(setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)) == 0) << Errno();
   if (connect(fd, addr.ai_addr, addr.ai_addrlen) != 0 && errno != EINPROGRESS) {
-    HCP_CHECK(close(fd) == 0);
+    LOG(WARN) << "[" << fd << "] connect() failed: " << Errno();
+    CHECK(close(fd) == 0) << Errno();
     return -1;
   }
   return fd;
@@ -56,7 +60,8 @@ class ConnectEventHandler : public EventHandler {
     } else if (HasBits(events, EPOLLOUT)) {
       int error = 0;
       socklen_t len = sizeof(error);
-      HCP_CHECK(getsockopt(fd(), SOL_SOCKET, SO_ERROR, &error, &len) == 0 && len == sizeof(error));
+      CHECK(getsockopt(fd(), SOL_SOCKET, SO_ERROR, &error, &len) == 0 && len == sizeof(error))
+          << Errno();
       Finish(loop, error == 0);
     }
   }
@@ -67,9 +72,11 @@ class ConnectEventHandler : public EventHandler {
   void Finish(EventLoop* loop, bool connected) {
     loop->Remove(this);
     if (connected) {
+      LOG(INFO) << "[" << fd() << "] connected";
       cb_(fd());
     } else {
-      HCP_CHECK(close(fd()) == 0);
+      LOG(WARN) << "[" << fd() << "] unable to connect";
+      CHECK(close(fd()) == 0) << Errno();
       cb_(-1);
     }
   }
@@ -82,7 +89,7 @@ class ConnectEventHandler : public EventHandler {
 Connector::Connector(const Options& opt) : event_loop_(*new EventLoop(opt.connect_timeout)) {}
 
 void Connector::Connect(const addrinfo& addr, Callback cb) {
-  assert(cb);
+  CHECK(cb);
   int fd = ConnectAsync(addr);
   if (fd < 0) {
     cb(fd);

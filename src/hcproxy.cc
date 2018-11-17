@@ -16,17 +16,18 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <cassert>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_set>
 
 #include "acceptor.h"
+#include "addr.h"
 #include "connector.h"
 #include "dns.h"
-#include "error.h"
+#include "check.h"
 #include "forwarder.h"
+#include "logging.h"
 #include "parser.h"
 
 namespace hcproxy {
@@ -60,10 +61,10 @@ void RunProxy(const Options& opt) {
 
   if (opt.max_num_open_files > 0) {
     struct rlimit lim;
-    HCP_CHECK(getrlimit(RLIMIT_NOFILE, &lim) == 0);
+    CHECK(getrlimit(RLIMIT_NOFILE, &lim) == 0) << Errno();
     lim.rlim_cur = opt.max_num_open_files;
     // It'll fail if opt.max_num_open_files is greater than lim.rlim_max.
-    HCP_CHECK(setrlimit(RLIMIT_NOFILE, &lim) == 0);
+    CHECK(setrlimit(RLIMIT_NOFILE, &lim) == 0) << Errno();
   }
 
   auto& acceptor = *new Acceptor(opt);
@@ -76,17 +77,19 @@ void RunProxy(const Options& opt) {
     int client_fd = acceptor.Accept();
     parser.ParseRequest(client_fd, [&, client_fd](std::string_view host_port) {
       if (host_port.empty() || !IsAllowedPort(host_port)) {
-        HCP_CHECK(close(client_fd) == 0);
+        CHECK(close(client_fd) == 0) << Errno();
         return;
       }
       dns_resolver.Resolve(host_port, [&, client_fd](std::shared_ptr<const addrinfo> addr) {
         if (!addr) {
-          HCP_CHECK(close(client_fd) == 0);
+          LOG(WARN) << "[" << client_fd << "] DNS error: " << host_port;
+          CHECK(close(client_fd) == 0) << Errno();
           return;
         }
+        LOG(INFO) << "[" << client_fd << "] tunnel to " << IP(*addr);
         connector.Connect(*addr, [&, client_fd](int server_fd) {
           if (server_fd < 0) {
-            HCP_CHECK(close(client_fd) == 0);
+            CHECK(close(client_fd) == 0) << Errno();
             return;
           }
           forwarder.Forward(client_fd, server_fd);
@@ -108,6 +111,6 @@ int main(int argc, char* argv[]) {
   }
   hcproxy::Options opt;
   hcproxy::RunProxy(opt);
-  assert("!RunProxy is not supposed to return");
+  LOG(FATAL) << "RunProxy is not supposed to return";
   return 1;
 }

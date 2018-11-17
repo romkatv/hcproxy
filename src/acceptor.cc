@@ -14,14 +14,18 @@
 
 #include "acceptor.h"
 
+#include <arpa/inet.h>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <string>
 
-#include "error.h"
+#include "addr.h"
+#include "check.h"
+#include "logging.h"
 
 namespace hcproxy {
 
@@ -33,36 +37,42 @@ addrinfo* Resolve(const char* host, uint16_t port) {
   hint.ai_family = AF_INET;
   hint.ai_socktype = SOCK_STREAM;
   hint.ai_flags = AI_PASSIVE;
-  HCP_CHECK(getaddrinfo(host, std::to_string(port).c_str(), &hint, &res) == 0);
+  CHECK(getaddrinfo(host, std::to_string(port).c_str(), &hint, &res) == 0);
   return res;
 }
 
 void SetSockOpt(int fd, int level, int optname) {
   int one = 1;
-  HCP_CHECK(setsockopt(fd, level, optname, &one, sizeof(one)) == 0);
+  CHECK(setsockopt(fd, level, optname, &one, sizeof(one)) == 0) << Errno();
 }
 
 }  // namespace
 
 Acceptor::Acceptor(const Options& opt) {
+  LOG(INFO) << "Listening on " << opt.listen_addr << ":" << opt.listen_port;
   addrinfo* addr = Resolve(opt.listen_addr.c_str(), opt.listen_port);
-  HCP_CHECK((fd_ = socket(addr->ai_family, SOCK_STREAM, 0)) >= 0);
+  CHECK((fd_ = socket(addr->ai_family, SOCK_STREAM, 0)) >= 0) << Errno();
   SetSockOpt(fd_, SOL_SOCKET, SO_REUSEADDR);
-  HCP_CHECK(bind(fd_, addr->ai_addr, addr->ai_addrlen) == 0);
-  HCP_CHECK(listen(fd_, opt.accept_queue_size) == 0);
+  CHECK(bind(fd_, addr->ai_addr, addr->ai_addrlen) == 0) << Errno();
+  CHECK(listen(fd_, opt.accept_queue_size) == 0) << Errno();
   freeaddrinfo(addr);
 }
 
-Acceptor::~Acceptor() { HCP_CHECK(close(fd_) == 0); }
+Acceptor::~Acceptor() { CHECK(close(fd_) == 0) << Errno(); }
 
 int Acceptor::Accept() {
   while (true) {
-    int conn = accept4(fd_, nullptr, nullptr, SOCK_NONBLOCK);
+    struct sockaddr addr = {};
+    socklen_t addrlen = sizeof(addr);
+    int conn = accept4(fd_, &addr, &addrlen, SOCK_NONBLOCK);
     if (conn >= 0) {
+      CHECK(addrlen == sizeof(addr));
+      LOG(INFO) << "[" << conn << "] accepted connection from " << IP(addr);
       SetSockOpt(conn, IPPROTO_TCP, TCP_NODELAY);
       return conn;
     }
-    HCP_CHECK(errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM);
+    LOG(ERROR) << "accept4() failed: " << Errno();
+    CHECK(errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM) << Errno();
   }
 }
 

@@ -1,7 +1,7 @@
 appname := hcproxy
 
 CXX := g++
-CXXFLAGS := -std=c++17 -fno-exceptions -Wall -Werror -D_GNU_SOURCE -O2  # -DNDEBUG
+CXXFLAGS := -std=c++17 -fno-exceptions -Wall -Werror -D_GNU_SOURCE -O2  -DNDEBUG
 LDFLAGS := -static-libstdc++ -static-libgcc -pthread
 
 SRCS := $(shell find src -name "*.cc")
