@@ -37,10 +37,14 @@ namespace internal_logging {
 
 static const char* Str(Severity severity) {
   switch (severity) {
-    case INFO: return "INFO";
-    case WARN: return "WARN";
-    case ERROR: return "ERROR";
-    case FATAL: return "FATAL";
+    case INFO:
+      return "INFO";
+    case WARN:
+      return "WARN";
+    case ERROR:
+      return "ERROR";
+    case FATAL:
+      return "FATAL";
   }
   return "UNKNOWN";
 }

@@ -23,9 +23,9 @@
 
 #include "acceptor.h"
 #include "addr.h"
+#include "check.h"
 #include "connector.h"
 #include "dns.h"
-#include "check.h"
 #include "forwarder.h"
 #include "logging.h"
 #include "parser.h"

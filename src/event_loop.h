@@ -19,8 +19,8 @@
 #include <functional>
 #include <thread>
 
-#include "epoll.h"
 #include "check.h"
+#include "epoll.h"
 #include "list.h"
 #include "time.h"
 

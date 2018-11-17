@@ -79,7 +79,7 @@ class Buffer {
     CHECK(size_ >= 0);
     CHECK(size_ <= capacity_);
   }
-  
+
   IoStatus WriteFrom(int fd) {
     CHECK(pipe_[1] >= 0);
     CHECK(size_ >= 0);
@@ -148,7 +148,9 @@ class LinkEventHandler : public EventHandler {
  public:
   static void New(EventLoop* loop, int client_fd, int server_fd, const Forwarder::Options& opt) {
     LOG(INFO) << "Forwarding traffic: "
-              << "[" << client_fd << "] (client)" << " <=> " << "[" << server_fd << "] (server)";
+              << "[" << client_fd << "] (client)"
+              << " <=> "
+              << "[" << server_fd << "] (server)";
     auto* client = new LinkEventHandler(client_fd, "client");
     auto* server = new LinkEventHandler(server_fd, "server");
     if (!client->out_.Init(opt.server_to_client_buffer_size_bytes) ||

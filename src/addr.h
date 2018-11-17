@@ -29,4 +29,3 @@ const char* IP(const addrinfo& addr);
 }  // namespace hcproxy
 
 #endif  // ROMKATV_HCPROXY_ADDR_H_
-
