@@ -37,7 +37,10 @@ addrinfo* Resolve(const char* host, uint16_t port) {
   hint.ai_family = AF_INET;
   hint.ai_socktype = SOCK_STREAM;
   hint.ai_flags = AI_PASSIVE;
-  CHECK(getaddrinfo(host, std::to_string(port).c_str(), &hint, &res) == 0);
+  int ret;
+  CHECK((ret = getaddrinfo(host, std::to_string(port).c_str(), &hint, &res)) == 0)
+      << gai_strerror(ret);
+  CHECK(res->ai_addr->sa_family == AF_INET);
   return res;
 }
 
@@ -49,8 +52,8 @@ void SetSockOpt(int fd, int level, int optname) {
 }  // namespace
 
 Acceptor::Acceptor(const Options& opt) {
-  LOG(INFO) << "Listening on " << opt.listen_addr << ":" << opt.listen_port;
   addrinfo* addr = Resolve(opt.listen_addr.c_str(), opt.listen_port);
+  LOG(INFO) << "Listening on " << IpPort(*addr);
   CHECK((fd_ = socket(addr->ai_family, SOCK_STREAM, 0)) >= 0) << Errno();
   SetSockOpt(fd_, SOL_SOCKET, SO_REUSEADDR);
   CHECK(bind(fd_, addr->ai_addr, addr->ai_addrlen) == 0) << Errno();
@@ -67,7 +70,8 @@ int Acceptor::Accept() {
     int conn = accept4(fd_, &addr, &addrlen, SOCK_NONBLOCK);
     if (conn >= 0) {
       CHECK(addrlen == sizeof(addr));
-      LOG(INFO) << "[" << conn << "] accepted connection from " << IP(addr);
+      CHECK(addr.sa_family == AF_INET);
+      LOG(INFO) << "[" << conn << "] accepted connection from " << IpPort(addr);
       SetSockOpt(conn, IPPROTO_TCP, TCP_NODELAY);
       return conn;
     }

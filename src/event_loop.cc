@@ -78,7 +78,6 @@ void EventLoop::Modify(EventHandler* eh, int events) {
   CHECK(eh->event_loop_ == this);
   CHECK(std::this_thread::get_id() == loop_.get_id());
   epoll_.Modify(eh->fd_, events, eh);
-  Refresh(eh);
 }
 
 void EventLoop::Schedule(std::function<void()> f) {
@@ -112,7 +111,6 @@ void EventLoop::Loop() {
         auto* eh = static_cast<EventHandler*>(ev.data.ptr);
         if (eh->event_loop_ == this) {
           eh->OnEvent(this, ev.events);
-          if (eh->event_loop_ == this) Refresh(eh);
         }
         eh->DecRef();
       }
@@ -132,6 +130,7 @@ void EventLoop::Loop() {
 void EventLoop::Refresh(EventHandler* eh) {
   CHECK(eh);
   CHECK(eh->event_loop_ == this);
+  CHECK(std::this_thread::get_id() == loop_.get_id());
   eh->deadline_ = Clock::now() + timeout_;
   if (auto* tail = static_cast<EventHandler*>(expire_.tail())) {
     static_cast<void>(tail);

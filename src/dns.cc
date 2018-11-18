@@ -44,12 +44,13 @@ std::shared_ptr<const addrinfo> ResolveSync(const std::string& host_port) {
   hint.ai_family = AF_INET;
   hint.ai_socktype = SOCK_STREAM;
   hint.ai_flags = AI_NUMERICSERV;
-  if (getaddrinfo(host.c_str(), port, &hint, &res) != 0) {
-    LOG(WARN) << "DNS error: " << host_port;
+  int ret = getaddrinfo(host.c_str(), port, &hint, &res);
+  if (ret != 0) {
+    LOG(WARN) << "DNS error for '" << host_port << "': " << gai_strerror(ret);
     return nullptr;
   }
-  CHECK(res->ai_addrlen == sizeof(sockaddr_in));
-  LOG(INFO) << "Resolved " << host_port << " as " << IP(*res);
+  CHECK(res->ai_addr->sa_family == AF_INET);
+  LOG(INFO) << "Resolved " << host_port << " as " << IpPort(*res);
   return std::shared_ptr<const addrinfo>(res, freeaddrinfo);
 }
 

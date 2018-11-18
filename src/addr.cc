@@ -14,12 +14,30 @@
 
 #include "addr.h"
 
+#include "check.h"
+
 namespace hcproxy {
 
-const char* IP(const sockaddr& addr) {
-  return inet_ntoa(reinterpret_cast<const sockaddr_in&>(addr).sin_addr);
+namespace {
+
+const sockaddr_in& Cast(const sockaddr& addr) {
+  CHECK(addr.sa_family == AF_INET);
+  return reinterpret_cast<const sockaddr_in&>(addr);
 }
 
-const char* IP(const addrinfo& addr) { return IP(*addr.ai_addr); }
+const sockaddr_in& Cast(const addrinfo& addr) {
+  CHECK(addr.ai_addr);
+  return Cast(*addr.ai_addr);
+}
+
+}  // namespace
+
+IpPort::IpPort(const sockaddr_in& addr) : addr(addr) {}
+IpPort::IpPort(const sockaddr& addr) : addr(Cast(addr)) {}
+IpPort::IpPort(const addrinfo& addr) : addr(Cast(addr)) {}
+
+std::ostream& operator<<(std::ostream& strm, const IpPort& x) {
+  return strm << inet_ntoa(x.addr.sin_addr) << ':' << ntohs(x.addr.sin_port);
+}
 
 }  // namespace hcproxy

@@ -12,28 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ROMKATV_HCPROXY_ADDR_H_
-#define ROMKATV_HCPROXY_ADDR_H_
-
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <ostream>
+#ifndef ROMKATV_HCPROXY_SOCK_H_
+#define ROMKATV_HCPROXY_SOCK_H_
 
 namespace hcproxy {
 
-struct IpPort {
-  IpPort(const sockaddr_in& addr);
-  IpPort(const sockaddr& addr);
-  IpPort(const addrinfo& addr);
-
-  const sockaddr_in& addr;
-};
-
-std::ostream& operator<<(std::ostream& strm, const IpPort& x);
+int SockError(int fd);
 
 }  // namespace hcproxy
 
-#endif  // ROMKATV_HCPROXY_ADDR_H_
+#endif  // ROMKATV_HCPROXY_SOCK_H_

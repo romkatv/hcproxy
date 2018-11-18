@@ -23,6 +23,7 @@
 #include "check.h"
 #include "event_loop.h"
 #include "logging.h"
+#include "sock.h"
 
 namespace hcproxy {
 
@@ -46,6 +47,7 @@ class ParseEventHandler : public EventHandler {
 
   void OnEvent(EventLoop* loop, int events) override {
     if (HasBits(events, EPOLLERR)) {
+      LOG(WARN) << "[" << fd() << "] error reading request data: " << Errno(SockError(fd()));
       Finish(loop, "");
     } else if (HasBits(events, EPOLLIN)) {
       if (std::optional<std::string_view> host_port = Read()) {
@@ -54,15 +56,13 @@ class ParseEventHandler : public EventHandler {
     }
   }
 
-  void OnTimeout(EventLoop* loop) override { Finish(loop, ""); }
+  void OnTimeout(EventLoop* loop) override {
+    LOG(WARN) << "[" << fd() << "] timed out waiting for request data";
+    Finish(loop, "");
+  }
 
  private:
   void Finish(EventLoop* loop, std::string_view host_port) {
-    if (host_port.empty()) {
-      LOG(WARN) << "[" << fd() << "] request parse error";
-    } else {
-      LOG(INFO) << "[" << fd() << "] CONNECT " << host_port;
-    }
     loop->Remove(this);
     cb_(host_port);
   }
@@ -78,20 +78,37 @@ class ParseEventHandler : public EventHandler {
       int ret = read(fd(), content_.data() + size_, content_.size() - size_);
       if (ret < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) return std::nullopt;
+        LOG(WARN) << "[" << fd() << "] error reading request: " << Errno();
         return "";
       }
       // Verify that the request starts with kConnectPrefix.
       if (size_ < kConnectPrefix.size()) {
         size_t n = std::min<size_t>(ret, kConnectPrefix.size() - size_);
-        if (memcmp(content_.data() + size_, kConnectPrefix.data() + size_, n) != 0) return "";
+        if (memcmp(content_.data() + size_, kConnectPrefix.data() + size_, n) != 0) {
+          LOG(WARN) << "[" << fd() << "] invalid request prefix";
+          return "";
+        }
       }
       size_ += ret;
       std::string_view req(content_.data(), size_);
       if (EndsWith(req, "\r\n\r\n")) {
         size_t start = kConnectPrefix.size();
-        return req.substr(start, req.find_first_of(" \r", start) - start);
+        std::string_view host_port = req.substr(start, req.find_first_of(" \r", start) - start);
+        if (host_port.empty()) {
+          LOG(WARN) << "[" << fd() << "] empty host:port in the request";
+        } else {
+          LOG(INFO) << "[" << fd() << "] CONNECT " << host_port;
+        }
+        return host_port;
       }
-      if (ret == 0 || size_ == content_.size()) return "";
+      if (ret == 0) {
+        LOG(WARN) << "[" << fd() << "] incomplete request";
+        return "";
+      }
+      if (size_ == content_.size()) {
+        LOG(WARN) << "[" << fd() << "] request too big";
+        return "";
+      }
     }
   }
 

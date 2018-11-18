@@ -17,6 +17,7 @@
 
 #include <cstdlib>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <sstream>
 
@@ -36,9 +37,13 @@
 
 namespace hcproxy {
 
-struct Errno {};
+struct Errno {
+  Errno() {}
+  Errno(int err) : err(err) {}
+  std::optional<int> err;
+};
 
-std::ostream& operator<<(std::ostream& strm, Errno);
+std::ostream& operator<<(std::ostream& strm, const Errno& e);
 
 namespace internal_logging {
 

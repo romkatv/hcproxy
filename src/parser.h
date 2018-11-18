@@ -32,8 +32,8 @@ class Parser {
   struct Options {
     // Close the incoming connection if its HTTP CONNECT request is longer than this.
     size_t max_request_size_bytes = 1024;
-    // Close the incoming connection if unable to read anything from it for this long
-    // before we've received the full HTTP CONNECT request.
+    // Close the incoming connection if unable to read the full HTTP CONNECT request
+    // within this time.
     Duration accept_timeout = std::chrono::seconds(5);
   };
 

@@ -27,6 +27,7 @@
 #include "check.h"
 #include "event_loop.h"
 #include "logging.h"
+#include "sock.h"
 
 namespace hcproxy {
 
@@ -39,7 +40,7 @@ int ConnectAsync(const addrinfo& addr) {
     CHECK(errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM) << Errno();
     return -1;
   }
-  LOG(INFO) << "[" << fd << "] connecting to " << IP(addr);
+  LOG(INFO) << "[" << fd << "] connecting to " << IpPort(addr);
   int one = 1;
   CHECK(setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)) == 0) << Errno();
   if (connect(fd, addr.ai_addr, addr.ai_addrlen) != 0 && errno != EINPROGRESS) {
@@ -55,27 +56,19 @@ class ConnectEventHandler : public EventHandler {
   ConnectEventHandler(int fd, Connector::Callback cb) : EventHandler(fd), cb_(std::move(cb)) {}
 
   void OnEvent(EventLoop* loop, int events) override {
-    if (HasBits(events, EPOLLERR)) {
-      Finish(loop, false);
-    } else if (HasBits(events, EPOLLOUT)) {
-      int error = 0;
-      socklen_t len = sizeof(error);
-      CHECK(getsockopt(fd(), SOL_SOCKET, SO_ERROR, &error, &len) == 0 && len == sizeof(error))
-          << Errno();
-      Finish(loop, error == 0);
-    }
+    if (HasBits(events, EPOLLERR) || HasBits(events, EPOLLOUT)) Finish(loop, SockError(fd()));
   }
 
-  void OnTimeout(EventLoop* loop) override { Finish(loop, false); }
+  void OnTimeout(EventLoop* loop) override { Finish(loop, ETIME); }
 
  private:
-  void Finish(EventLoop* loop, bool connected) {
+  void Finish(EventLoop* loop, int err) {
     loop->Remove(this);
-    if (connected) {
+    if (err == 0) {
       LOG(INFO) << "[" << fd() << "] connected";
       cb_(fd());
     } else {
-      LOG(WARN) << "[" << fd() << "] unable to connect";
+      LOG(WARN) << "[" << fd() << "] unable to connect: " << Errno(err);
       CHECK(close(fd()) == 0) << Errno();
       cb_(-1);
     }

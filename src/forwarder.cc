@@ -27,6 +27,7 @@
 #include "check.h"
 #include "event_loop.h"
 #include "logging.h"
+#include "sock.h"
 
 namespace hcproxy {
 
@@ -174,26 +175,27 @@ class LinkEventHandler : public EventHandler {
   }
 
   void OnEvent(EventLoop* loop, int events) override {
-    auto Process = [&]() {
+    // Returns true if some data has been transferred and the link isn't broken.
+    auto Process = [&]() -> bool {
       if (HasBits(events, EPOLLERR)) {
-        int err = 0;
-        socklen_t errlen = sizeof(err);
-        CHECK(getsockopt(fd(), SOL_SOCKET, SO_ERROR, &err, &errlen) == 0) << Errno();
-        errno = err;
-        LOG(INFO) << "[" << fd() << "] (" << name_ << ") connection broke: " << Errno();
+        LOG(INFO) << "[" << fd() << "] (" << name_ << ") "
+                  << "connection broke: " << Errno(SockError(fd()));
         Terminate(loop);
-        return;
+        return false;
       }
-      if (HasBits(events, EPOLLOUT) && !ForwardFromOther(loop)) return;
-      if (HasBits(events, EPOLLIN) && !other_->ForwardFromOther(loop)) return;
+      return (HasBits(events, EPOLLOUT) && ForwardFromOther(loop)) |
+             (HasBits(events, EPOLLIN) && other_->ForwardFromOther(loop));
     };
     other_->IncRef();
-    Process();
+    if (Process()) {
+      Refresh(loop);
+      other_->Refresh(loop);
+    }
     other_->DecRef();
   }
 
   void OnTimeout(EventLoop* loop) override {
-    LOG(INFO) << "[" << fd() << "] (" << name_ << ") timed out";
+    LOG(INFO) << "[" << fd() << "] (" << name_ << ") timed out waiting for IO";
     other_->IncRef();
     Terminate(loop);
     other_->DecRef();
@@ -205,8 +207,9 @@ class LinkEventHandler : public EventHandler {
   ~LinkEventHandler() override { CHECK(!readable_ && !writable_); }
 
   // Forwards as much data as possible from the other link to this.
-  // On error, terminates both links and returns false.
+  // Returns true if some data has been transferred and the link isn't broken.
   bool ForwardFromOther(EventLoop* loop) {
+    bool res = false;
     while (true) {
       bool io = false;
       if (other_->readable_) {
@@ -245,7 +248,11 @@ class LinkEventHandler : public EventHandler {
             break;
         }
       }
-      if (!io) return true;
+      if (io) {
+        res = true;
+      } else {
+        return res;
+      }
     }
   }
 
@@ -289,6 +296,10 @@ class LinkEventHandler : public EventHandler {
   void Terminate(EventLoop* loop) {
     Close(loop);
     other_->Close(loop);
+  }
+
+  void Refresh(EventLoop* loop) {
+    if (readable_ || writable_) loop->Refresh(this);
   }
 
   const char* name_;

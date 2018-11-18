@@ -86,7 +86,7 @@ void RunProxy(const Options& opt) {
           CHECK(close(client_fd) == 0) << Errno();
           return;
         }
-        LOG(INFO) << "[" << client_fd << "] tunnel to " << IP(*addr);
+        LOG(INFO) << "[" << client_fd << "] tunnel to " << IpPort(*addr);
         connector.Connect(*addr, [&, client_fd](int server_fd) {
           if (server_fd < 0) {
             CHECK(close(client_fd) == 0) << Errno();

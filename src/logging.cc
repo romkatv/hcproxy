@@ -25,10 +25,10 @@ namespace hcproxy {
 
 static thread_local int hcp_errno = 0;
 
-std::ostream& operator<<(std::ostream& strm, Errno) {
+std::ostream& operator<<(std::ostream& strm, const Errno& e) {
   char buf[256];
   errno = 0;
-  const char* desc = strerror_r(hcp_errno, buf, sizeof(buf));
+  const char* desc = strerror_r(e.err.value_or(hcp_errno), buf, sizeof(buf));
   if (errno) desc = "unknown error";
   return strm << desc;
 }

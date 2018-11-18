@@ -85,6 +85,9 @@ class EventLoop {
   // Can be called only from the Loop() thread.
   void Modify(EventHandler* eh, int events);
 
+  // Can be called only from the Loop() thread.
+  void Refresh(EventHandler* eh);
+
   // Cannot be called from the Loop() thread. Can be called concurrently.
   void Schedule(std::function<void()> f);
 
@@ -94,8 +97,6 @@ class EventLoop {
 
  private:
   void Loop();
-
-  void Refresh(EventHandler* eh);
 
   int pipe_[2];
   EPoll epoll_;

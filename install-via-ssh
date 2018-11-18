@@ -5,7 +5,7 @@
 # Installs hcproxy as systemd service on the specified remote machine.
 # Must be run from the hcproxy directory.
 
-set -eu
+set -euE
 set -o pipefail
 
 if [[ $# -ne 2 ]]; then
