@@ -33,17 +33,9 @@
       : ::hcproxy::internal_logging::Assignable() =                                       \
             ::hcproxy::internal_logging::LogStream(__FILE__, __LINE__,                    \
                                                    ::hcproxy::internal_logging::severity) \
-                .strm()
+                .ref()
 
 namespace hcproxy {
-
-struct Errno {
-  Errno() {}
-  Errno(int err) : err(err) {}
-  std::optional<int> err;
-};
-
-std::ostream& operator<<(std::ostream& strm, const Errno& e);
 
 namespace internal_logging {
 
@@ -65,16 +57,45 @@ class LogStream {
   LogStream(LogStream&&) = delete;
   ~LogStream();
 
+  LogStream& ref() { return *this; }
   std::ostream& strm() { return *strm_; }
+  int stashed_errno() const { return errno_; }
 
  private:
+  int errno_;
   const char* file_;
   int line_;
   Severity severity_;
   std::unique_ptr<std::ostringstream> strm_;
 };
 
+template <class T>
+LogStream& operator<<(LogStream& strm, const T& val) {
+  strm.strm() << val;
+  return strm;
+}
+
+inline LogStream& operator<<(LogStream& strm, std::ostream& (*manip)(std::ostream&)) {
+  strm.strm() << manip;
+  return strm;
+}
+
+struct Errno {
+  int err;
+};
+
+std::ostream& operator<<(std::ostream& strm, Errno e);
+
+struct StashedErrno {};
+
+inline LogStream& operator<<(LogStream& strm, StashedErrno) {
+  return strm << Errno{strm.stashed_errno()};
+}
+
 }  // namespace internal_logging
+
+inline internal_logging::Errno Errno(int err) { return {err}; }
+inline internal_logging::StashedErrno Errno() { return {}; }
 
 }  // namespace hcproxy
 

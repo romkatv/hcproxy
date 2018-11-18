@@ -22,20 +22,11 @@
 #include <string>
 
 namespace hcproxy {
-
-static thread_local int hcp_errno = 0;
-
-std::ostream& operator<<(std::ostream& strm, const Errno& e) {
-  char buf[256];
-  errno = 0;
-  const char* desc = strerror_r(e.err.value_or(hcp_errno), buf, sizeof(buf));
-  if (errno) desc = "unknown error";
-  return strm << desc;
-}
-
 namespace internal_logging {
 
-static const char* Str(Severity severity) {
+namespace {
+
+const char* Str(Severity severity) {
   switch (severity) {
     case INFO:
       return "INFO";
@@ -49,9 +40,10 @@ static const char* Str(Severity severity) {
   return "UNKNOWN";
 }
 
+}  // namespace
+
 LogStream::LogStream(const char* file, int line, Severity severity)
-    : file_(file), line_(line), severity_(severity) {
-  hcp_errno = errno;
+    : errno_(errno), file_(file), line_(line), severity_(severity) {
   strm_ = std::make_unique<std::ostringstream>();
 }
 
@@ -64,10 +56,17 @@ LogStream::~LogStream() {
   std::string msg = strm_->str();
   std::fprintf(stderr, "[%s %s %s:%d] %s\n", time_str, Str(severity_), file_, line_, msg.c_str());
   strm_.reset();
-  errno = hcp_errno;
+  errno = errno_;
   if (severity_ == FATAL) std::abort();
 }
 
-}  // namespace internal_logging
+std::ostream& operator<<(std::ostream& strm, Errno e) {
+  // GNU C Library uses a buffer of 1024 characters for strerror(). Mimic to avoid truncations.
+  char buf[1024];
+  // This temp variable ensures that we are calling the GNU-specific strerror_r().
+  const char* desc = strerror_r(e.err, buf, sizeof(buf));
+  return strm << desc;
+}
 
+}  // namespace internal_logging
 }  // namespace hcproxy
