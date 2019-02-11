@@ -133,7 +133,6 @@ void EventLoop::Refresh(EventHandler* eh) {
   CHECK(std::this_thread::get_id() == loop_.get_id());
   eh->deadline_ = Clock::now() + timeout_;
   if (auto* tail = static_cast<EventHandler*>(expire_.tail())) {
-    static_cast<void>(tail);
     CHECK(eh->deadline_ >= tail->deadline_);
   }
   expire_.Erase(eh);
