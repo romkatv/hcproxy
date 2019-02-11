@@ -57,7 +57,6 @@ LogStream::~LogStream() {
   std::fprintf(stderr, "[%s %s %s:%d] %s\n", time_str, Str(severity_), file_, line_, msg.c_str());
   strm_.reset();
   errno = errno_;
-  if (severity_ == FATAL) std::abort();
 }
 
 std::ostream& operator<<(std::ostream& strm, Errno e) {

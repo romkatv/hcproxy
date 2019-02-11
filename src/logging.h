@@ -27,12 +27,12 @@
 
 #define LOG(severity) LOG_I(severity)
 
-#define LOG_I(severity)                                                                   \
-  (::hcproxy::internal_logging::severity < ::hcproxy::internal_logging::HCP_MIN_LOG_LVL)  \
-      ? static_cast<void>(0)                                                              \
-      : ::hcproxy::internal_logging::Assignable() =                                       \
-            ::hcproxy::internal_logging::LogStream(__FILE__, __LINE__,                    \
-                                                   ::hcproxy::internal_logging::severity) \
+#define LOG_I(severity)                                                                    \
+  (::hcproxy::internal_logging::severity < ::hcproxy::internal_logging::HCP_MIN_LOG_LVL)   \
+      ? static_cast<void>(0)                                                               \
+      : ::hcproxy::internal_logging::Assignable<::hcproxy::internal_logging::severity>() = \
+            ::hcproxy::internal_logging::LogStream(__FILE__, __LINE__,                     \
+                                                   ::hcproxy::internal_logging::severity)  \
                 .ref()
 
 namespace hcproxy {
@@ -46,7 +46,16 @@ enum Severity {
   FATAL = 3,
 };
 
+template <Severity>
 struct Assignable {
+  template <class T>
+  void operator=(const T&) const {}
+};
+
+template <>
+struct Assignable<FATAL> {
+  ~Assignable() __attribute__((noreturn)) { std::abort(); }
+
   template <class T>
   void operator=(const T&) const {}
 };
