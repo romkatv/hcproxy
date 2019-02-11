@@ -114,10 +114,10 @@ class Buffer {
       pipe_[0] = -1;
       return IoStatus::kEof;
     }
-    // There is a bug in splice() that makes it clear the pipe upon returning an error, be it EAGAIN
-    // or something else. To work around it, we do two things. First, we issue a zero-byte write
-    // to check whether the socket is writable and thus to reduce the chance splice() will return
-    // EAGAIN. Second, we terminate the connection if we trigger the bug in splice().
+    // There is a bug in splice() in WSL that makes it clear the pipe upon returning an error, be it
+    // EAGAIN or something else. To work around it, we do two things. First, we issue a zero-byte
+    // write to check whether the socket is writable and thus to reduce the chance splice() will
+    // return EAGAIN. Second, we terminate the connection if we trigger the bug in splice().
     if (write(fd, "", 0) == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
       return IoStatus::kNoOp;
     }
