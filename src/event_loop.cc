@@ -42,8 +42,8 @@ void AddFlags(int fd, int flags) {
 
 EventLoop::EventLoop(Duration timeout) : timeout_(std::move(timeout)) {
   CHECK(timeout_ > Duration::zero());
-  // Passing O_DIRECT to pipe2() doesn't work on Windows.
-  // Setting it via fcntl() doesn't work on AWS.
+  // Passing O_DIRECT to pipe2() doesn't work on WSL.
+  // Setting it via fcntl() doesn't work on Linux.
   if (pipe2(pipe_, O_DIRECT) != 0) {
     CHECK(pipe(pipe_) == 0) << Errno();
     for (int fd : pipe_) AddFlags(fd, O_DIRECT);
