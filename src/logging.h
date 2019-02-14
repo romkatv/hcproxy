@@ -30,9 +30,9 @@
 #define LOG_I(severity)                                                                    \
   (::hcproxy::internal_logging::severity < ::hcproxy::internal_logging::HCP_MIN_LOG_LVL)   \
       ? static_cast<void>(0)                                                               \
-      : ::hcproxy::internal_logging::Assignable<::hcproxy::internal_logging::severity>() = \
-            ::hcproxy::internal_logging::LogStream(__FILE__, __LINE__,                     \
-                                                   ::hcproxy::internal_logging::severity)  \
+      : ::hcproxy::internal_logging::Assignable() =                                        \
+            ::hcproxy::internal_logging::LogStream<::hcproxy::internal_logging::severity>( \
+                __FILE__, __LINE__, ::hcproxy::internal_logging::severity)                 \
                 .ref()
 
 namespace hcproxy {
@@ -46,29 +46,21 @@ enum Severity {
   FATAL = 3,
 };
 
-template <Severity>
 struct Assignable {
   template <class T>
   void operator=(const T&) const {}
 };
 
-template <>
-struct Assignable<FATAL> {
-  ~Assignable() __attribute__((noreturn)) { std::abort(); }
-
-  template <class T>
-  void operator=(const T&) const {}
-};
-
-class LogStream {
+class LogStreamBase {
  public:
-  LogStream(const char* file, int line, Severity severity);
-  LogStream(LogStream&&) = delete;
-  ~LogStream();
+  LogStreamBase(const char* file, int line, Severity severity);
 
-  LogStream& ref() { return *this; }
+  LogStreamBase& ref() { return *this; }
   std::ostream& strm() { return *strm_; }
   int stashed_errno() const { return errno_; }
+
+ protected:
+  void Flush();
 
  private:
   int errno_;
@@ -78,13 +70,30 @@ class LogStream {
   std::unique_ptr<std::ostringstream> strm_;
 };
 
+template <Severity>
+class LogStream : public LogStreamBase {
+ public:
+  using LogStreamBase::LogStreamBase;
+  ~LogStream() { this->Flush(); }
+};
+
+template <>
+class LogStream<FATAL> : public LogStreamBase {
+ public:
+  using LogStreamBase::LogStreamBase;
+  ~LogStream() __attribute__((noreturn)) {
+    this->Flush();
+    std::abort();
+  }
+};
+
 template <class T>
-LogStream& operator<<(LogStream& strm, const T& val) {
+LogStreamBase& operator<<(LogStreamBase& strm, const T& val) {
   strm.strm() << val;
   return strm;
 }
 
-inline LogStream& operator<<(LogStream& strm, std::ostream& (*manip)(std::ostream&)) {
+inline LogStreamBase& operator<<(LogStreamBase& strm, std::ostream& (*manip)(std::ostream&)) {
   strm.strm() << manip;
   return strm;
 }
@@ -97,7 +106,7 @@ std::ostream& operator<<(std::ostream& strm, Errno e);
 
 struct StashedErrno {};
 
-inline LogStream& operator<<(LogStream& strm, StashedErrno) {
+inline LogStreamBase& operator<<(LogStreamBase& strm, StashedErrno) {
   return strm << Errno{strm.stashed_errno()};
 }
 

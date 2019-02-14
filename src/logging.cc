@@ -42,12 +42,12 @@ const char* Str(Severity severity) {
 
 }  // namespace
 
-LogStream::LogStream(const char* file, int line, Severity severity)
+LogStreamBase::LogStreamBase(const char* file, int line, Severity severity)
     : errno_(errno), file_(file), line_(line), severity_(severity) {
   strm_ = std::make_unique<std::ostringstream>();
 }
 
-LogStream::~LogStream() {
+void LogStreamBase::Flush() {
   std::time_t time = std::time(nullptr);
   char time_str[64];
   if (std::strftime(time_str, sizeof(time_str), "%F %T", std::localtime(&time)) == 0) {
