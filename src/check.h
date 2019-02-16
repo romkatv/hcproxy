@@ -20,6 +20,7 @@
 // The argument must be an expression convertible to bool.
 // Does nothing if the expression evalutes to true. Otherwise
 // it's equivalent to LOG(FATAL).
-#define CHECK(cond...) (!!(cond)) ? static_cast<void>(0) : LOG(FATAL) << #cond << ": "
+#define CHECK(cond...) \
+  static_cast<void>(0), (!!(cond)) ? static_cast<void>(0) : LOG(FATAL) << #cond << ": "
 
 #endif  // ROMKATV_HCPROXY_CHECK_H_
