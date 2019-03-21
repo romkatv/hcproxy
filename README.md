@@ -12,7 +12,7 @@ With decent network drivers tunneling is zero copy, which makes `hcproxy` fast a
 ## Compiling
 
 ```shell
-git clone git@github.com:romkatv/hcproxy.git
+git clone https://github.com/romkatv/hcproxy.git
 cd hcproxy
 make
 ```
