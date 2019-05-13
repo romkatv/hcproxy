@@ -16,6 +16,9 @@ fi
 readonly PEM=$1
 readonly MACHINE=$2
 
+dir=$(dirname ${BASH_SOURCE[@]})
+cd $dir
+
 echo "Compiling hcproxy..." >&2
 make
 
