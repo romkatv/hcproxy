@@ -23,12 +23,11 @@ clean:
 	rm -rf obj
 
 install: $(appname)
-	systemctl stop $(appname) || true
-	systemctl disable $(appname) || true
 	cp -f $(appname) /usr/sbin/
 	cp -f $(appname).service /lib/systemd/system/
 	systemd-analyze verify /lib/systemd/system/$(appname).service
-	systemctl enable $(appname)
-	systemctl start $(appname)
+	systemctl stop $(appname) || true
+	systemctl disable $(appname) || true
+	systemctl enable --now $(appname)
 
 -include $(OBJS:.o=.dep)

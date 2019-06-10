@@ -2,8 +2,8 @@
 #
 # Usage: install-via-ssh certificate.pem user@12.34.56.78
 #
-# Installs hcproxy as systemd service on the specified remote machine.
-# Must be run from the hcproxy directory.
+# Installs hcproxy as systemd service on the specified remote machine. The user must have
+# sudo privileges without password.
 
 set -euE
 set -o pipefail
@@ -13,8 +13,8 @@ if [[ $# -ne 2 ]]; then
   exit 1
 fi
 
-readonly PEM=$1
-readonly MACHINE=$2
+readonly cert=$1
+readonly host=$2
 
 dir=$(dirname ${BASH_SOURCE[@]})
 cd $dir
@@ -22,19 +22,18 @@ cd $dir
 echo "Compiling hcproxy..." >&2
 make
 
-echo "Copying hcproxy to $MACHINE..." >&2
-scp -i "$PEM" -o "StrictHostKeyChecking no" hcproxy hcproxy.service "$MACHINE":~
+echo "Copying hcproxy to $host..." >&2
+scp -i "$cert" -o "StrictHostKeyChecking no" hcproxy hcproxy.service "$host":~
 
-echo "Installing hcproxy on $MACHINE..." >&2
-ssh -i "$PEM" -o "StrictHostKeyChecking no" "$MACHINE" 'bash -ex' <<END
-  sudo systemctl stop hcproxy 2>/dev/null || true
-  sudo systemctl disable hcproxy 2>/dev/null || true
+echo "Installing hcproxy on $host..." >&2
+ssh -i "$cert" -o "StrictHostKeyChecking no" "$host" 'bash -ex' <<END
   sudo cp -f hcproxy /usr/sbin/
   sudo cp -f hcproxy.service /lib/systemd/system/
   sudo systemd-analyze verify /lib/systemd/system/hcproxy.service
-  sudo systemctl enable hcproxy
-  sudo systemctl start hcproxy
+  sudo systemctl stop hcproxy 2>/dev/null || true
+  sudo systemctl disable hcproxy 2>/dev/null || true
+  sudo systemctl enable --now hcproxy
   rm hcproxy hcproxy.service
 END
 
-echo "SUCCESS: installed hcproxy on $MACHINE" >&2
+echo "SUCCESS: installed hcproxy on $host" >&2
