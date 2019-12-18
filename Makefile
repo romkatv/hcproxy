@@ -1,3 +1,5 @@
+.RECIPEPREFIX = >
+
 appname := hcproxy
 
 CXX := g++
@@ -10,24 +12,24 @@ OBJS := $(patsubst src/%.cc, obj/%.o, $(SRCS))
 all: $(appname)
 
 $(appname): $(OBJS)
-	$(CXX) $(LDFLAGS) -o $(appname) $(OBJS)
+> $(CXX) $(LDFLAGS) -o $(appname) $(OBJS)
 
 obj:
-	mkdir -p obj
+> mkdir -p obj
 
 obj/%.o: src/%.cc Makefile | obj
-	$(CXX) $(CXXFLAGS) -MM -MT $@ src/$*.cc >obj/$*.dep
-	$(CXX) $(CXXFLAGS) -c -o $@ src/$*.cc
+> $(CXX) $(CXXFLAGS) -MM -MT $@ src/$*.cc >obj/$*.dep
+> $(CXX) $(CXXFLAGS) -c -o $@ src/$*.cc
 
 clean:
-	rm -rf obj
+> rm -rf obj
 
 install: $(appname)
-	cp -f $(appname) /usr/sbin/
-	cp -f $(appname).service /lib/systemd/system/
-	systemd-analyze verify /lib/systemd/system/$(appname).service
-	systemctl stop $(appname) || true
-	systemctl disable $(appname) || true
-	systemctl enable --now $(appname)
+> cp -f $(appname) /usr/sbin/
+> cp -f $(appname).service /lib/systemd/system/
+> systemd-analyze verify /lib/systemd/system/$(appname).service
+> systemctl stop $(appname) || true
+> systemctl disable $(appname) || true
+> systemctl enable --now $(appname)
 
 -include $(OBJS:.o=.dep)
