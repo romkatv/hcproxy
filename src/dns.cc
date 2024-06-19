@@ -54,6 +54,16 @@ std::shared_ptr<const addrinfo> ResolveSync(const std::string& host_port) {
   return std::shared_ptr<const addrinfo>(res, freeaddrinfo);
 }
 
+std::shared_ptr<const addrinfo> Next(const std::shared_ptr<const addrinfo>& head,
+                                     std::shared_ptr<const addrinfo>& addr) {
+  if (!addr || !addr->ai_next) {
+    addr = head;
+  } else {
+    addr = std::shared_ptr<const addrinfo>(addr, addr->ai_next);
+  }
+  return addr;
+}
+
 }  // namespace
 
 DnsResolver::DnsResolver(Options opt)
@@ -78,7 +88,7 @@ void DnsResolver::Resolve(std::string_view host_port, Callback cb) {
   }
   std::shared_ptr<const addrinfo> addr;
   if (c.successfully_resolved_at + opt_.dns_cache_ttl > now) {
-    addr = c.addr;
+    addr = Next(c.head, c.addr);
   }
   c.used_at = std::max(c.used_at, now);
   lock.unlock();
@@ -95,21 +105,24 @@ void DnsResolver::ProcessCacheEntry(Cache::iterator it) {
   }
   if (!c.callbacks.empty() || c.resolved_at + opt_.dns_cache_refresh_period <= now) {
     lock.unlock();
-    std::shared_ptr<const addrinfo> addr = ResolveSync(it->first);
+    std::shared_ptr<const addrinfo> head = ResolveSync(it->first);
     std::vector<Callback> callbacks;
     now = Clock::now();
     lock.lock();
     if (!c.callbacks.empty()) c.used_at = now;
     c.callbacks.swap(callbacks);
     c.resolved_at = now;
-    if (addr) {
-      c.addr = addr;
+    if (head) {
+      c.head = head;
+      c.addr = nullptr;
       c.successfully_resolved_at = now;
     }
     if (!callbacks.empty()) {
+      std::shared_ptr<const addrinfo> addr;
       lock.unlock();
-      for (const auto& f : callbacks) f(addr);
+      for (const auto& f : callbacks) f(Next(head, addr));
       lock.lock();
+      c.addr = addr;
     }
   }
   Time next = std::min(c.resolved_at + opt_.dns_cache_refresh_period,
