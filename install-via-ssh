@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Usage: install-via-ssh certificate.pem user@12.34.56.78
+# Usage: install-via-ssh user@12.34.56.78
 #
 # Installs hcproxy as systemd service on the specified remote machine. The user must have
 # sudo privileges without password.
@@ -8,25 +8,24 @@
 set -euE
 set -o pipefail
 
-if [[ $# -ne 2 ]]; then
-  echo 'Usage: install-via-ssh certificate.pem user@12.34.56.78' >&2
+if [[ $# -ne 1 ]]; then
+  echo 'Usage: install-via-ssh user@12.34.56.78' >&2
   exit 1
 fi
 
-readonly cert=$1
-readonly host=$2
+readonly host=$1
 
 dir=$(dirname ${BASH_SOURCE[@]})
-cd $dir
+cd -- "$dir"
 
 echo "Compiling hcproxy..." >&2
-make
+make -j 8
 
 echo "Copying hcproxy to $host..." >&2
-scp -i "$cert" -o "StrictHostKeyChecking no" hcproxy hcproxy.service "$host":~
+scp -o "StrictHostKeyChecking no" hcproxy hcproxy.service "$host":~
 
 echo "Installing hcproxy on $host..." >&2
-ssh -i "$cert" -o "StrictHostKeyChecking no" "$host" 'bash -ex' <<END
+ssh -o "StrictHostKeyChecking no" "$host" 'bash -ex' <<END
   sudo cp -f hcproxy /usr/sbin/
   sudo cp -f hcproxy.service /lib/systemd/system/
   sudo systemd-analyze verify /lib/systemd/system/hcproxy.service
