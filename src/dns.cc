@@ -32,12 +32,6 @@ namespace hcproxy {
 
 namespace {
 
-addrinfo& Tail(addrinfo& head) {
-  addrinfo* res = &head;
-  while (res->ai_next && res->ai_next != &head) res = res->ai_next;
-  return *res;
-}
-
 std::shared_ptr<const addrinfo> Advance(std::shared_ptr<const addrinfo>& p) {
   return std::exchange(p, p ? std::shared_ptr<const addrinfo>(p, p->ai_next) : nullptr);
 }
@@ -71,11 +65,14 @@ std::shared_ptr<const addrinfo> ResolveSync(const std::string& host_port) {
   }
   CHECK(res->ai_addr->sa_family == AF_INET);
   LOG(INFO) << "Resolved " << host_port << " as " << Describe(*res);
-  Tail(*res).ai_next = res;
-  return std::shared_ptr<const addrinfo>(res, [](addrinfo* head) {
-    Tail(*head).ai_next = nullptr;
-    freeaddrinfo(head);
-  });
+  for (addrinfo* tail = res;; tail = tail->ai_next) {
+    if (tail->ai_next) continue;
+    tail->ai_next = res;
+    return std::shared_ptr<const addrinfo>(res, [tail](addrinfo* head) {
+      tail->ai_next = nullptr;
+      freeaddrinfo(head);
+    });
+  }
 }
 
 }  // namespace
