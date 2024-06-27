@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <sstream>
 #include <utility>
 
 #include "addr.h"
@@ -30,6 +31,25 @@
 namespace hcproxy {
 
 namespace {
+
+addrinfo& Tail(addrinfo& head) {
+  addrinfo* res = &head;
+  while (res->ai_next && res->ai_next != &head) res = res->ai_next;
+  return *res;
+}
+
+std::shared_ptr<const addrinfo> Advance(std::shared_ptr<const addrinfo>& p) {
+  return std::exchange(p, p ? std::shared_ptr<const addrinfo>(p, p->ai_next) : nullptr);
+}
+
+std::string Describe(const addrinfo& head) {
+  std::ostringstream strm;
+  for (const addrinfo* p = &head; p; p = p->ai_next) {
+    if (p != &head) strm << ", ";
+    strm << IpPort(*p);
+  }
+  return strm.str();
+}
 
 std::shared_ptr<const addrinfo> ResolveSync(const std::string& host_port) {
   const char* port = std::strchr(host_port.c_str(), ':');
@@ -50,18 +70,12 @@ std::shared_ptr<const addrinfo> ResolveSync(const std::string& host_port) {
     return nullptr;
   }
   CHECK(res->ai_addr->sa_family == AF_INET);
-  LOG(INFO) << "Resolved " << host_port << " as " << IpPort(*res);
-  return std::shared_ptr<const addrinfo>(res, freeaddrinfo);
-}
-
-std::shared_ptr<const addrinfo> Next(const std::shared_ptr<const addrinfo>& head,
-                                     std::shared_ptr<const addrinfo>& addr) {
-  if (!addr || !addr->ai_next) {
-    addr = head;
-  } else {
-    addr = std::shared_ptr<const addrinfo>(addr, addr->ai_next);
-  }
-  return addr;
+  LOG(INFO) << "Resolved " << host_port << " as " << Describe(*res);
+  Tail(*res).ai_next = res;
+  return std::shared_ptr<const addrinfo>(res, [](addrinfo* head) {
+    Tail(*head).ai_next = nullptr;
+    freeaddrinfo(head);
+  });
 }
 
 }  // namespace
@@ -86,11 +100,9 @@ void DnsResolver::Resolve(std::string_view host_port, Callback cb) {
     c.callbacks.push_back(std::move(cb));
     return;
   }
-  std::shared_ptr<const addrinfo> addr;
-  if (c.successfully_resolved_at + opt_.dns_cache_ttl > now) {
-    addr = Next(c.head, c.addr);
-  }
-  c.used_at = std::max(c.used_at, now);
+  std::shared_ptr<const addrinfo> addr =
+      c.successfully_resolved_at + opt_.dns_cache_ttl > now ? c.addr : nullptr;
+  c.Use(now);
   lock.unlock();
   cb(std::move(addr));
 }
@@ -103,32 +115,40 @@ void DnsResolver::ProcessCacheEntry(Cache::iterator it) {
     cache_.erase(it);
     return;
   }
-  if (!c.callbacks.empty() || c.resolved_at + opt_.dns_cache_refresh_period <= now) {
+  if (c.resolved_at + opt_.dns_cache_refresh_period <= now) {
     lock.unlock();
-    std::shared_ptr<const addrinfo> head = ResolveSync(it->first);
-    std::vector<Callback> callbacks;
+    std::shared_ptr<const addrinfo> addr = ResolveSync(it->first);
     now = Clock::now();
     lock.lock();
-    if (!c.callbacks.empty()) c.used_at = now;
-    c.callbacks.swap(callbacks);
     c.resolved_at = now;
-    if (head) {
-      c.head = head;
-      c.addr = nullptr;
-      c.successfully_resolved_at = now;
-    }
-    if (!callbacks.empty()) {
-      std::shared_ptr<const addrinfo> addr;
-      lock.unlock();
-      for (const auto& f : callbacks) f(Next(head, addr));
-      lock.lock();
+    if (addr) {
       c.addr = addr;
+      c.successfully_resolved_at = now;
+      for (int64_t i = 0; c.use_count; ++i) {
+        --c.use_count;
+        Advance(c.addr);
+        if (c.addr == addr) c.use_count %= i + 1;
+      }
     }
+  }
+  if (!c.callbacks.empty()) {
+    std::vector<Callback> callbacks = std::exchange(c.callbacks, {});
+    std::shared_ptr<const addrinfo> addr = c.addr;
+    for (size_t i = 0; i != callbacks.size(); ++i) c.Use(now);
+    lock.unlock();
+    for (const auto& f : callbacks) f(Advance(addr));
+    lock.lock();
   }
   Time next = std::min(c.resolved_at + opt_.dns_cache_refresh_period,
                        c.used_at + opt_.dns_cache_refresh_duration);
   lock.unlock();
   threads_.Schedule(next, [=] { ProcessCacheEntry(it); });
+}
+
+void DnsResolver::CacheData::Use(const Time& now) {
+  ++use_count;
+  Advance(addr);
+  used_at = std::max(used_at, now);
 }
 
 }  // namespace hcproxy

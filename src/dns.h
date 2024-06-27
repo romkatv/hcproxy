@@ -61,8 +61,7 @@ class DnsResolver {
   DnsResolver(DnsResolver&&) = delete;
 
   // The callback is called exactly once. It may be called synchronously.
-  // Its argument is null on error. Otherwise it is one of the addrinfo objects
-  // returned by getaddrinfo() in round-robin fashion.
+  // Its argument is null on error.
   //
   // If `host_port` isn't of the form "host_or_ip:port", you'll get an error.
   //
@@ -71,12 +70,14 @@ class DnsResolver {
 
  private:
   struct CacheData {
+    void Use(const Time& now);
+
     std::vector<Callback> callbacks;
-    std::shared_ptr<const addrinfo> head;
     std::shared_ptr<const addrinfo> addr;
     Time used_at;
     Time resolved_at;
     Time successfully_resolved_at;
+    int64_t use_count = 0;
   };
 
   // We use std::map rather than std::unordered_map because the former supports
